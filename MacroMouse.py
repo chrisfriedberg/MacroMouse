@@ -1,25 +1,27 @@
 import customtkinter as ctk
-import tkinter as tk # Still need tkinter for StringVar
+import tkinter as tk
 from tkinter import messagebox, filedialog
 import pyperclip
 import subprocess
 import os
 import sys
-import shutil # Used for copy/delete fallback during file move
+import json
 from datetime import datetime
+import uuid
+import xml.etree.ElementTree as ET
 
-# --- Globals ---
-macro_file_path = None
+# --- GLOBALS ---
 log_file_path = None
-# Keep selected_macro_name accessible within create_macro_window scope
+config_file_path = None
 selected_macro_name = None
-# Keep a reference to list items (buttons) for easy clearing/updating
-macro_list_items = [] # Stores the actual CTkButton widgets in the list
+macro_list_items = []
+selected_category = "All"
+macro_data_file_path = None
+macros_dict = {}  # In-memory macro storage
 
-# --- Core Logic Functions ---
-
+# --- LOGGING ---
 def get_log_timestamp():
-    """Return a simple timestamp string for logging."""
+    """Return a timestamp string for logging."""
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def log_message(message):
@@ -27,523 +29,923 @@ def log_message(message):
     global log_file_path
     if log_file_path:
         try:
-            # Ensure directory exists before writing log
             log_dir = os.path.dirname(log_file_path)
             if log_dir and not os.path.exists(log_dir):
-                 os.makedirs(log_dir, exist_ok=True)
+                os.makedirs(log_dir, exist_ok=True)
             with open(log_file_path, "a", encoding="utf-8") as logf:
                 logf.write(f"[{get_log_timestamp()}] {message}\n")
         except Exception as e:
-            # Non-critical error, print to console instead of showing popup
             print(f"Warning: could not write log file '{log_file_path}': {e}")
 
-def load_macros():
-    """Loads macro data from the currently set macro_file_path."""
-    global macro_file_path
-    macros = {}
-    if not macro_file_path or not os.path.exists(macro_file_path):
-        # Log this, but don't show popup here; handled in main() or file ops
-        log_message(f"Macro file not found or path not set during load: {macro_file_path}")
-        return macros # Return empty dict
-
+# --- CONFIG MANAGEMENT ---
+def load_config():
+    """Load configuration from config.json"""
+    global config_file_path
+    if not config_file_path or not os.path.exists(config_file_path):
+        return {}
     try:
-        with open(macro_file_path, "r", encoding="utf-8") as f:
-            current_macro_name = None
-            current_macro_content = ""
-            for line in f:
-                stripped_line = line.strip()
-                if stripped_line.startswith("#"):
-                    # Save previous macro if one was being built
-                    if current_macro_name:
-                        macros[current_macro_name] = current_macro_content.strip()
-                    # Start new macro
-                    current_macro_name = stripped_line[1:].strip()
-                    current_macro_content = "" # Reset content
-                elif current_macro_name is not None: # Ensure we have a macro name before appending
-                    # Append line to current macro content (preserve original line breaks)
-                    current_macro_content += line # Keep original newline from file
-            # Save the last macro in the file
-            if current_macro_name is not None: # Check again for last macro
-                macros[current_macro_name] = current_macro_content.strip()
-        log_message(f"Successfully loaded {len(macros)} macros from: {macro_file_path}")
-        return macros
+        with open(config_file_path, 'r') as f:
+            return json.load(f)
     except Exception as e:
-        messagebox.showerror("Error Loading File", f"Error loading macros from {macro_file_path}:\n{e}")
-        log_message(f"Error loading macros: {e}")
-        return None # Return None on critical error to distinguish from empty file
+        log_message(f"Error loading config: {e}")
+        return {}
 
-def save_macros(macros_to_save):
-    """Saves the provided macro dictionary to the current macro_file_path."""
-    global macro_file_path
-    if not macro_file_path:
-        messagebox.showerror("Error", "Cannot save: Macro file path is not set.")
+def save_config(config_data):
+    """Save configuration to config.json"""
+    global config_file_path
+    if not config_file_path:
         return False
-
     try:
-        # Ensure directory exists before writing
-        macro_dir = os.path.dirname(macro_file_path)
-        if macro_dir and not os.path.exists(macro_dir):
-            os.makedirs(macro_dir, exist_ok=True)
-            log_message(f"Created directory for macro file: {macro_dir}")
-
-        with open(macro_file_path, "w", encoding="utf-8") as f:
-            # Sort macros by name before saving for consistency
-            for name in sorted(macros_to_save.keys()):
-                content = macros_to_save[name]
-                f.write(f"# {name}\n") # Write macro name marker
-                # Write content exactly as stored (should preserve newlines)
-                f.write(f"{content}\n\n") # Add blank line for separation
-        log_message(f"Saved {len(macros_to_save)} macros to: {macro_file_path}")
+        with open(config_file_path, 'w') as f:
+            json.dump(config_data, f, indent=4)
         return True
     except Exception as e:
-        messagebox.showerror("Error Saving File", f"Error saving macros to {macro_file_path}:\n{e}")
-        log_message(f"Error saving macros: {e}")
+        log_message(f"Error saving config: {e}")
         return False
 
-def copy_macro(macro_name_to_copy, macros_dict):
+def change_app_icon(window):
+    """Handle changing the application icon"""
+    config = load_config()
+    
+    icon_path = filedialog.askopenfilename(
+        title="Select Application Icon",
+        filetypes=[("Icon files", "*.ico")],
+        initialdir=os.path.dirname(config.get('icon_path', '')) or os.path.expanduser("~")
+    )
+    
+    if not icon_path:
+        return
+        
+    try:
+        window.iconbitmap(icon_path)
+        config['icon_path'] = icon_path
+        if save_config(config):
+            log_message(f"Changed application icon to: {icon_path}")
+        else:
+            messagebox.showerror("Error", "Failed to save icon configuration")
+    except Exception as e:
+        messagebox.showerror("Error", f"Invalid icon file: {e}")
+        if 'icon_path' in config:
+            try:
+                window.iconbitmap(config['icon_path'])
+            except:
+                pass
+
+# --- DATA MANAGEMENT ---
+def generate_unique_id(prefix="MACRO"):
+    """Generate a unique ID for macros or categories."""
+    return f"{prefix}_{uuid.uuid4().hex[:8].upper()}"
+
+def load_macro_data():
+    """Load the structured macro data from XML file."""
+    global macro_data_file_path
+    if not macro_data_file_path or not os.path.exists(macro_data_file_path):
+        return {
+            "version": "1.0",
+            "categories": {},
+            "macros": {},
+            "category_order": []
+        }
+    try:
+        tree = ET.parse(macro_data_file_path)
+        root = tree.getroot()
+        
+        data = {
+            "version": root.find("version").text if root.find("version") is not None else "1.0",
+            "categories": {},
+            "macros": {},
+            "category_order": []
+        }
+        
+        for cat_elem in root.find("categories").findall("category"):
+            cat_id = cat_elem.get("id")
+            data["categories"][cat_id] = {
+                "name": cat_elem.find("name").text,
+                "created": cat_elem.find("created").text,
+                "modified": cat_elem.find("modified").text,
+                "description": cat_elem.find("description").text if cat_elem.find("description") is not None else ""
+            }
+        
+        for macro_elem in root.find("macros").findall("macro"):
+            macro_id = macro_elem.get("id")
+            data["macros"][macro_id] = {
+                "name": macro_elem.find("name").text,
+                "category_id": macro_elem.find("category_id").text,
+                "content": macro_elem.find("content").text,
+                "created": macro_elem.find("created").text,
+                "modified": macro_elem.find("modified").text,
+                "version": int(macro_elem.find("version").text)
+            }
+        
+        order_elem = root.find("category_order")
+        if order_elem is not None and order_elem.text:
+            data["category_order"] = order_elem.text.split(",")
+        else:
+            data["category_order"] = list(data["categories"].keys())
+        
+        return data
+    except Exception as e:
+        log_message(f"Error loading macro data: {e}")
+        return {
+            "version": "1.0",
+            "categories": {},
+            "macros": {},
+            "category_order": []
+        }
+
+def save_macro_data(data, category_order=None):
+    """Save the structured macro data to XML file."""
+    global macro_data_file_path
+    if not macro_data_file_path:
+        return False
+    try:
+        root = ET.Element("macro_data")
+        
+        version_elem = ET.SubElement(root, "version")
+        version_elem.text = data.get("version", "1.0")
+        
+        if category_order is None:
+            category_order = list(data["categories"].keys())
+        order_elem = ET.SubElement(root, "category_order")
+        order_elem.text = ",".join(category_order)
+        
+        categories_elem = ET.SubElement(root, "categories")
+        for cat_id, cat_data in data["categories"].items():
+            cat_elem = ET.SubElement(categories_elem, "category", id=cat_id)
+            name_elem = ET.SubElement(cat_elem, "name")
+            name_elem.text = cat_data["name"]
+            created_elem = ET.SubElement(cat_elem, "created")
+            created_elem.text = cat_data["created"]
+            modified_elem = ET.SubElement(cat_elem, "modified")
+            modified_elem.text = cat_data["modified"]
+            desc_elem = ET.SubElement(cat_elem, "description")
+            desc_elem.text = cat_data.get("description", "")
+        
+        macros_elem = ET.SubElement(root, "macros")
+        for macro_id, macro_data in data["macros"].items():
+            macro_elem = ET.SubElement(macros_elem, "macro", id=macro_id)
+            name_elem = ET.SubElement(macro_elem, "name")
+            name_elem.text = macro_data["name"]
+            cat_id_elem = ET.SubElement(macro_elem, "category_id")
+            cat_id_elem.text = macro_data["category_id"]
+            content_elem = ET.SubElement(macro_elem, "content")
+            content_elem.text = macro_data["content"]
+            created_elem = ET.SubElement(macro_elem, "created")
+            created_elem.text = macro_data["created"]
+            modified_elem = ET.SubElement(macro_elem, "modified")
+            modified_elem.text = macro_data["modified"]
+            version_elem = ET.SubElement(macro_elem, "version")
+            version_elem.text = str(macro_data["version"])
+        
+        tree = ET.ElementTree(root)
+        tree.write(macro_data_file_path, encoding="utf-8", xml_declaration=True)
+        return True
+    except Exception as e:
+        log_message(f"Error saving macro data: {e}")
+        return False
+
+def create_new_category(name, description=""):
+    """Create a new category in the macro data."""
+    data = load_macro_data()
+    cat_id = generate_unique_id("CAT")
+    data["categories"][cat_id] = {
+        "name": name,
+        "created": datetime.now().isoformat(),
+        "modified": datetime.now().isoformat(),
+        "description": description
+    }
+    if save_macro_data(data):
+        return cat_id
+    return None
+
+def add_macro_to_data(category_id, name, content):
+    """Add a new macro to the structured data."""
+    data = load_macro_data()
+    macro_id = generate_unique_id()
+    data["macros"][macro_id] = {
+        "name": name,
+        "category_id": category_id,
+        "content": content,
+        "created": datetime.now().isoformat(),
+        "modified": datetime.now().isoformat(),
+        "version": 1
+    }
+    if save_macro_data(data):
+        return macro_id
+    return None
+
+def update_macro_in_data(macro_id, category_id, name, content):
+    """Update an existing macro in the structured data."""
+    data = load_macro_data()
+    if macro_id in data["macros"]:
+        macro = data["macros"][macro_id]
+        macro.update({
+            "name": name,
+            "category_id": category_id,
+            "content": content,
+            "modified": datetime.now().isoformat(),
+            "version": macro.get("version", 1) + 1
+        })
+        if save_macro_data(data):
+            return True
+    return False
+
+def delete_macro_from_data(macro_id):
+    """Delete a macro from the structured data."""
+    data = load_macro_data()
+    if macro_id in data["macros"]:
+        del data["macros"][macro_id]
+        return save_macro_data(data)
+    return False
+
+def get_category_by_name(name):
+    """Get category ID by name."""
+    data = load_macro_data()
+    for cat_id, cat_data in data["categories"].items():
+        if cat_data["name"] == name:
+            return cat_id
+    return None
+
+def get_macro_by_name(name, category_id=None):
+    """Get macro ID by name and optionally category."""
+    data = load_macro_data()
+    for macro_id, macro_data in data["macros"].items():
+        if macro_data["name"] == name:
+            if category_id is None or macro_data["category_id"] == category_id:
+                return macro_id
+    return None
+
+def get_macros_for_ui(selected_category="All", search_term=""):
+    """Returns a list of (category, macro_name, content) for UI display."""
+    data = load_macro_data()
+    macros = []
+    search_term = search_term.lower().strip()
+    for macro_id, macro in data["macros"].items():
+        cat_id = macro["category_id"]
+        cat_name = data["categories"].get(cat_id, {}).get("name", "Uncategorized")
+        name = macro["name"]
+        content = macro["content"]
+        if selected_category != "All" and cat_name != selected_category:
+            continue
+        if search_term and (search_term not in name.lower() and search_term not in content.lower()):
+            continue
+        macros.append((cat_name, name, content))
+    return macros
+
+def get_categories():
+    """Return a sorted list of categories from the data."""
+    data = load_macro_data()
+    order = data.get("category_order", list(data["categories"].keys()))
+    names = [data["categories"][cid]["name"] for cid in order if cid in data["categories"]]
+    return ["All"] + names
+
+# --- FILE OPERATIONS ---
+def copy_macro(macro_key):
     """Copies the content of the specified macro to the clipboard."""
-    if macro_name_to_copy and macro_name_to_copy in macros_dict:
+    if macro_key and macro_key in macros_dict:
         try:
-            pyperclip.copy(macros_dict[macro_name_to_copy])
-            log_message(f"Copied macro '{macro_name_to_copy}' to clipboard.")
-            # Optional: Add status bar feedback instead of print
-            print(f"Copied to clipboard: {macro_name_to_copy}")
+            pyperclip.copy(macros_dict[macro_key])
+            log_message(f"Copied macro '{macro_key[1]}' to clipboard.")
+            print(f"Copied to clipboard: {macro_key[1]}")
         except Exception as e:
-             # Pyperclip can sometimes fail
-             messagebox.showerror("Clipboard Error", f"Could not copy to clipboard: {e}")
-             log_message(f"Clipboard error for macro '{macro_name_to_copy}': {e}")
-    elif macro_name_to_copy:
-        # Should not happen if selection logic is correct, but handle anyway
-        log_message(f"Attempted to copy non-existent macro: {macro_name_to_copy}")
-        messagebox.showerror("Error", f"Macro '{macro_name_to_copy}' not found in current data.")
+            messagebox.showerror("Clipboard Error", f"Could not copy to clipboard: {e}")
+            log_message(f"Clipboard error for macro '{macro_key[1]}': {e}")
+    elif macro_key:
+        log_message(f"Attempted to copy non-existent macro: {macro_key}")
+        messagebox.showerror("Error", f"Macro '{macro_key[1]}' not found in current data.")
 
 def open_macro_file():
-    """Opens the current macro file using the OS default text editor."""
-    global macro_file_path
-    if not macro_file_path:
-        messagebox.showerror("Error", "Cannot open: Macro file path is not set.")
+    """Opens the current macro data file using the OS default text editor."""
+    global macro_data_file_path
+    if not macro_data_file_path:
+        messagebox.showerror("Error", "Cannot open: Macro data file path is not set.")
         return
-    if not os.path.exists(macro_file_path):
-         messagebox.showerror("Error", f"Cannot open: Macro file not found at:\n{macro_file_path}")
-         return
+    if not os.path.exists(macro_data_file_path):
+        messagebox.showerror("Error", f"Cannot open: Macro data file not found at:\n{macro_data_file_path}")
+        return
 
-    log_message(f"Attempting to open macro file: {macro_file_path}")
+    log_message(f"Attempting to open macro data file: {macro_data_file_path}")
     try:
         if sys.platform.startswith('win32'):
-            os.startfile(macro_file_path) # Recommended way on Windows
+            os.startfile(macro_data_file_path)
         elif sys.platform.startswith('darwin'):
-            subprocess.run(['open', macro_file_path], check=True) # macOS
-        else: # Assume Linux/other Unix-like
-            subprocess.run(['xdg-open', macro_file_path], check=True) # Standard freedesktop way
-        log_message("Successfully launched default editor for macro file.")
-    except FileNotFoundError:
-         # This might mean the file exists but the associated application doesn't
-         messagebox.showerror("Error", f"Could not find an application associated with text files, or the file path is invalid:\n{macro_file_path}")
-         log_message(f"Error opening macro file - File or associated application not found: {macro_file_path}")
-    except Exception as e:
-        messagebox.showerror("Error Opening File", f"An error occurred while trying to open the macro file:\n{e}")
-        log_message(f"Error opening macro file: {e}")
-
-# --- File Location Management Functions ---
-
-def use_new_macro_file(macros_dict, update_list_func):
-    """
-    Prompts user for a parent directory, creates a 'MacroMouse' subfolder,
-    initializes new 'macros.txt' and 'MacroMouse.log' files there,
-    updates global paths, and reloads the UI.
-    """
-    global macro_file_path, log_file_path
-
-    # Suggest starting directory (e.g., User's Documents)
-    initial_dir = os.path.expanduser("~")
-    if sys.platform.startswith('win32'):
-        docs = os.path.join(initial_dir, "Documents")
-        desktop = os.path.join(initial_dir, "Desktop")
-        initial_dir = docs if os.path.exists(docs) else (desktop if os.path.exists(desktop) else initial_dir)
-
-    folder_selected = filedialog.askdirectory(
-        title="Select Parent Folder for New Macro File Location",
-        initialdir=initial_dir
-        )
-    if not folder_selected:
-        log_message("User cancelled 'Use New Macro File' dialog.")
-        return
-
-    log_message(f"User selected new parent folder: {folder_selected}")
-    target_folder = os.path.join(folder_selected, "MacroMouse") # Standard subfolder name
-
-    try:
-        os.makedirs(target_folder, exist_ok=True) # Create structure if needed
-        log_message(f"Ensured target directory exists: {target_folder}")
-    except Exception as e:
-         messagebox.showerror("Directory Error", f"Could not create directory:\n{target_folder}\n\nError: {e}")
-         log_message(f"Failed to create target directory {target_folder}: {e}")
-         return
-
-    # Define new file paths
-    new_macro_path = os.path.join(target_folder, "macros.txt")
-    new_log_path = os.path.join(target_folder, "MacroMouse.log")
-
-    # Create/overwrite the macros file with a starter message
-    try:
-        with open(new_macro_path, "w", encoding="utf-8") as f:
-            f.write("# Welcome to MacroMouse!\nAdd your first macro using the 'Add' button.\n\n")
-        log_message(f"Created new macro file: {new_macro_path}")
-    except Exception as e:
-         messagebox.showerror("File Creation Error", f"Could not create new macro file:\n{new_macro_path}\n\nError: {e}")
-         log_message(f"Failed to create new macro file {new_macro_path}: {e}")
-         return
-
-    # Create/overwrite the log file
-    try:
-        with open(new_log_path, "w", encoding="utf-8") as lf:
-             lf.write(f"[{get_log_timestamp()}] Created/Reset MacroMouse.log at new location: {new_log_path}\n")
-        # Update global log path *only after* successfully writing the new log
-        log_file_path = new_log_path
-        log_message(f"Created/Reset log file: {new_log_path}") # Log this using the *new* log file
-    except Exception as e:
-        messagebox.showwarning("Log File Warning", f"Could not create/clear log file:\n{new_log_path}\n\nError: {e}")
-        log_message(f"Failed to create/reset log file {new_log_path}: {e}") # Log failure using old log path
-        log_file_path = None # Invalidate if creation failed
-
-    # Update the global macro path *after* successful file creation
-    macro_file_path = new_macro_path
-
-    messagebox.showinfo("New Macro File Set", f"MacroMouse will now use files in:\n{target_folder}")
-
-    # Clear current data, load from new file, and update UI
-    macros_dict.clear()
-    reloaded_data = load_macros()
-    if reloaded_data is not None:
-        macros_dict.update(reloaded_data)
-    update_list_func() # Refresh the list (should show the example)
-
-def change_macro_file_location(macros_dict, update_list_func):
-    """
-    Moves the existing macros.txt and log file to a new parent directory
-    selected by the user (within a 'MacroMouse' subfolder).
-    Starts the dialog in the current file's directory.
-    """
-    global macro_file_path, log_file_path
-
-    if not macro_file_path or not os.path.exists(macro_file_path):
-        messagebox.showerror("Error", "Cannot move: No valid macro file currently set or found.")
-        return
-
-    current_macro_dir = os.path.dirname(macro_file_path)
-    current_macro_filename = os.path.basename(macro_file_path)
-    current_log_filename = os.path.basename(log_file_path) if log_file_path and os.path.basename(log_file_path) else "MacroMouse.log"
-
-    # Start the directory chooser in the current macro file's location
-    folder_selected = filedialog.askdirectory(
-        title="Select New Parent Folder (a 'MacroMouse' subfolder will be created/used)",
-        initialdir=current_macro_dir
-        )
-    if not folder_selected:
-        log_message("User cancelled 'Move File' dialog.")
-        return
-
-    log_message(f"User selected new parent folder for move: {folder_selected}")
-
-    target_folder = os.path.join(folder_selected, "MacroMouse")
-    new_macro_path = os.path.join(target_folder, current_macro_filename)
-    new_log_path = os.path.join(target_folder, current_log_filename)
-
-    if os.path.abspath(new_macro_path) == os.path.abspath(macro_file_path):
-         messagebox.showinfo("Info", "The selected location is the same as the current location. Files not moved.")
-         log_message("Move operation cancelled: Target location is same as source.")
-         return
-
-    if os.path.exists(new_macro_path) or os.path.exists(new_log_path):
-        existing = []
-        if os.path.exists(new_macro_path): existing.append(os.path.basename(new_macro_path))
-        if os.path.exists(new_log_path): existing.append(os.path.basename(new_log_path))
-        if not messagebox.askyesno("Confirm Overwrite",
-                                   f"The file(s) '{', '.join(existing)}' already exist(s) in the target 'MacroMouse' subfolder.\n\nOverwrite?"):
-            log_message("Move operation cancelled: User chose not to overwrite existing files.")
-            return
-
-    try:
-        os.makedirs(target_folder, exist_ok=True)
-        log_message(f"Ensured target directory exists for move: {target_folder}")
-    except Exception as e:
-        messagebox.showerror("Directory Error", f"Could not create target directory:\n{target_folder}\n\nError: {e}")
-        log_message(f"Failed to create target directory {target_folder} for move: {e}")
-        return
-
-    original_macro_path = macro_file_path
-    original_log_path = log_file_path
-    macro_moved = False
-    log_moved = False
-
-    try:
-        if not save_macros(macros_dict):
-             raise Exception("Failed to save current macros before moving. Aborting move.")
-
-        # Move Macro File
-        try:
-            os.rename(original_macro_path, new_macro_path)
-            log_message(f"Successfully renamed macro file to: {new_macro_path}")
-            macro_moved = True
-        except OSError:
-             log_message(f"os.rename failed for macro file. Attempting shutil.copy2/os.remove...")
-             shutil.copy2(original_macro_path, new_macro_path)
-             os.remove(original_macro_path)
-             log_message(f"Successfully copied/deleted macro file to: {new_macro_path}")
-             macro_moved = True
-
-        if macro_moved:
-            macro_file_path = new_macro_path
-
-        # Move Log File
-        if original_log_path and os.path.exists(original_log_path):
-            try:
-                os.rename(original_log_path, new_log_path)
-                log_message(f"Successfully renamed log file to: {new_log_path}")
-                log_moved = True
-            except OSError:
-                log_message(f"os.rename failed for log file. Attempting shutil.copy2/os.remove...")
-                shutil.copy2(original_log_path, new_log_path)
-                os.remove(original_log_path)
-                log_message(f"Successfully copied/deleted log file to: {new_log_path}")
-                log_moved = True
-
-            if log_moved:
-                log_file_path = new_log_path
+            subprocess.run(['open', macro_data_file_path], check=True)
         else:
-             log_message("Original log file not found or path not set, skipping log move.")
-             if macro_moved: log_file_path = new_log_path
-
-        if macro_moved:
-             messagebox.showinfo("Move Successful", f"Files moved successfully to:\n{target_folder}")
-             log_message(f"Move operation completed. New macro path: {macro_file_path}, New log path: {log_file_path}")
-             macros_dict.clear()
-             reloaded_data = load_macros()
-             if reloaded_data is not None:
-                 macros_dict.update(reloaded_data)
-             update_list_func()
-        else:
-             messagebox.showerror("Move Failed", "Could not move the macro file. Operation aborted.")
-
+            subprocess.run(['xdg-open', macro_data_file_path], check=True)
+        log_message("Successfully launched default editor for macro data file.")
     except Exception as e:
-        macro_file_path = original_macro_path
-        log_file_path = original_log_path
-        messagebox.showerror("Error During Move", f"An error occurred: {e}\n\nPaths have been reset to original locations. Please check file permissions and ensure files are not open.")
-        log_message(f"Error during move process: {e}. Attempted to restore original paths.")
-        macros_dict.clear()
-        reloaded_data = load_macros() # Reload original data
-        if reloaded_data is not None:
-            macros_dict.update(reloaded_data)
-        update_list_func()
+        messagebox.showerror("Error Opening File", f"An error occurred while trying to open the macro data file:\n{e}")
+        log_message(f"Error opening macro data file: {e}")
 
-# --- Popup Windows ---
-
-def add_macro_popup(macros_dict, update_list_func):
-    """Popup to add a new macro using CustomTkinter."""
+# --- POPUP WINDOWS ---
+def add_macro_popup(update_list_func, category_dropdown):
+    """Popup to add a new macro with category selection."""
     popup = ctk.CTkToplevel()
     popup.title("Add New Macro")
-    popup.geometry("450x380")
-    popup.minsize(400, 350)
+    popup.geometry("500x350")
     popup.grab_set()
-    popup.attributes('-topmost', True)
-    popup.after(150, lambda: popup.attributes('-topmost', False))
 
-    input_frame = ctk.CTkFrame(popup)
-    input_frame.pack(pady=10, padx=10, fill="both", expand=True)
-    name_label = ctk.CTkLabel(input_frame, text="Macro Name:")
-    name_label.pack(pady=(5, 0), padx=10, anchor="w")
-    name_entry = ctk.CTkEntry(input_frame)
-    name_entry.pack(pady=(0, 10), padx=10, fill="x")
-    name_entry.focus()
-    content_label = ctk.CTkLabel(input_frame, text="Macro Content:")
-    content_label.pack(pady=(5, 0), padx=10, anchor="w")
-    content_text = ctk.CTkTextbox(input_frame, font=("Consolas", 11))
-    content_text.pack(pady=(0, 10), padx=10, fill="both", expand=True)
+    # Macro Name
+    name_label = ctk.CTkLabel(popup, text="Macro Name:")
+    name_label.pack(padx=10, pady=(10, 0), anchor="w")
+    name_entry = ctk.CTkEntry(popup)
+    name_entry.pack(padx=10, fill="x")
 
-    button_frame = ctk.CTkFrame(popup, fg_color="transparent")
-    button_frame.pack(pady=(0, 10), padx=10, fill="x", side="bottom")
+    # Category
+    cat_label = ctk.CTkLabel(popup, text="Category:")
+    cat_label.pack(padx=10, pady=(10, 0), anchor="w")
+    
+    data = load_macro_data()
+    categories = [(cat_id, cat_data["name"]) for cat_id, cat_data in data["categories"].items()]
+    categories.sort(key=lambda x: x[1])
+    category_names = [name for _, name in categories]
+    category_names.append("+ New Category")
+    
+    cat_var = tk.StringVar(value=category_names[0] if category_names else "Uncategorized")
+    cat_dropdown = ctk.CTkOptionMenu(popup, values=category_names, variable=cat_var)
+    cat_dropdown.pack(padx=10, fill="x")
+
+    def on_cat_change(choice):
+        if choice == "+ New Category":
+            new_cat = ctk.CTkInputDialog(text="Enter new category name:", title="New Category").get_input()
+            if new_cat and new_cat.strip():
+                new_cat = new_cat.strip()
+                cat_id = create_new_category(new_cat)
+                if cat_id:
+                    category_names.insert(-1, new_cat)
+                    cat_var.set(new_cat)
+                    cat_dropdown.configure(values=category_names)
+                    if category_dropdown:
+                        category_dropdown.configure(values=get_categories())
+                else:
+                    messagebox.showerror("Error", "Failed to create new category.")
+                    cat_var.set(category_names[0] if category_names else "Uncategorized")
+            else:
+                cat_var.set(category_names[0] if category_names else "Uncategorized")
+    cat_dropdown.configure(command=on_cat_change)
+
+    # Macro Content
+    content_label = ctk.CTkLabel(popup, text="Macro Content:")
+    content_label.pack(padx=10, pady=(10, 0), anchor="w")
+    content_text = ctk.CTkTextbox(popup, height=6)
+    content_text.pack(padx=10, pady=(0, 10), fill="both", expand=True)
+
+    # Buttons
+    btn_frame = ctk.CTkFrame(popup)
+    btn_frame.pack(fill="x", padx=10, pady=(0, 10))
 
     def add_macro_action():
         name = name_entry.get().strip()
-        content = content_text.get("1.0", "end-1c").strip()
-        if not name: messagebox.showerror("Input Error", "Macro Name cannot be empty.", parent=popup); return
-        if not content: messagebox.showerror("Input Error", "Macro Content cannot be empty.", parent=popup); return
-        if name in macros_dict: messagebox.showerror("Name Conflict", f"Macro name '{name}' already exists.", parent=popup); return
-
-        macros_dict[name] = content
-        if save_macros(macros_dict):
-            log_message(f"Added macro '{name}'.")
-            update_list_func(name) # Refresh list and select new item
+        category_name = cat_var.get().strip() or "Uncategorized"
+        content = content_text.get("1.0", "end").strip()
+        
+        if not name:
+            messagebox.showerror("Error", "Macro name cannot be empty.")
+            return
+            
+        cat_id = get_category_by_name(category_name)
+        if not cat_id:
+            messagebox.showerror("Error", "Invalid category selected.")
+            return
+            
+        if get_macro_by_name(name, cat_id):
+            messagebox.showerror("Error", "A macro with this name already exists in this category.")
+            return
+            
+        macro_id = add_macro_to_data(cat_id, name, content)
+        if macro_id:
+            macros_dict[(category_name, name)] = content
+            update_list_func((category_name, name))
             popup.destroy()
+            if category_dropdown:
+                category_dropdown.configure(values=get_categories())
+                category_dropdown.set("All")
         else:
-            if name in macros_dict: del macros_dict[name] # Revert change in memory if save failed
-            messagebox.showerror("Save Error", "Could not save macros to file. Macro not added.", parent=popup)
+            messagebox.showerror("Error", "Failed to save macro to data file.")
 
-    def cancel_action(): popup.destroy()
+    add_btn = ctk.CTkButton(btn_frame, text="Add Macro", command=add_macro_action)
+    add_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
+    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=popup.destroy, fg_color="gray")
+    cancel_btn.pack(side="right", padx=(5, 0), expand=True, fill="x")
 
-    add_button = ctk.CTkButton(button_frame, text="Add Macro", command=add_macro_action)
-    add_button.pack(side="left", padx=(0, 10))
-    cancel_button = ctk.CTkButton(button_frame, text="Cancel", command=cancel_action, fg_color="gray")
-    cancel_button.pack(side="right")
-
-    name_entry.bind("<Return>", lambda event: content_text.focus())
-    content_text.bind("<Control-Return>", lambda event: add_macro_action())
-    popup.protocol("WM_DELETE_WINDOW", cancel_action)
-
-def edit_macro_popup(macros_dict, macro_name_to_edit, update_list_func):
-    """Popup to edit an existing macro using CustomTkinter."""
-    if not macro_name_to_edit or macro_name_to_edit not in macros_dict:
-        messagebox.showerror("Error", "Invalid or non-existent macro selected for editing.")
+def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
+    """Popup to edit an existing macro with category selection."""
+    data = load_macro_data()
+    macro_id = None
+    current_cat_id = None
+    
+    for mid, macro in data["macros"].items():
+        if macro["name"] == macro_name_to_edit:
+            macro_id = mid
+            current_cat_id = macro["category_id"]
+            break
+    
+    if not macro_id:
+        messagebox.showerror("Error", "Macro not found in data structure.")
         return
-
+    
+    current_category = data["categories"][current_cat_id]["name"]
+    
     popup = ctk.CTkToplevel()
-    popup.title(f"Edit Macro: {macro_name_to_edit}")
-    popup.geometry("450x380")
-    popup.minsize(400, 350)
+    popup.title("Edit Macro")
+    popup.geometry("500x350")
     popup.grab_set()
-    popup.attributes('-topmost', True)
-    popup.after(150, lambda: popup.attributes('-topmost', False))
 
-    original_name = macro_name_to_edit
-    original_content = macros_dict[original_name]
+    # Macro Name
+    name_label = ctk.CTkLabel(popup, text="Macro Name:")
+    name_label.pack(padx=10, pady=(10, 0), anchor="w")
+    name_entry = ctk.CTkEntry(popup)
+    name_entry.insert(0, macro_name_to_edit)
+    name_entry.pack(padx=10, fill="x")
 
-    input_frame = ctk.CTkFrame(popup)
-    input_frame.pack(pady=10, padx=10, fill="both", expand=True)
-    name_label = ctk.CTkLabel(input_frame, text="Macro Name:")
-    name_label.pack(pady=(5, 0), padx=10, anchor="w")
-    name_entry = ctk.CTkEntry(input_frame)
-    name_entry.insert(0, original_name)
-    name_entry.pack(pady=(0, 10), padx=10, fill="x")
-    content_label = ctk.CTkLabel(input_frame, text="Macro Content:")
-    content_label.pack(pady=(5, 0), padx=10, anchor="w")
-    content_text = ctk.CTkTextbox(input_frame, font=("Consolas", 11))
-    content_text.insert("1.0", original_content)
-    content_text.pack(pady=(0, 10), padx=10, fill="both", expand=True)
-    content_text.focus()
+    # Category
+    cat_label = ctk.CTkLabel(popup, text="Category:")
+    cat_label.pack(padx=10, pady=(10, 0), anchor="w")
+    
+    categories = [(cat_id, cat_data["name"]) for cat_id, cat_data in data["categories"].items()]
+    categories.sort(key=lambda x: x[1])
+    category_names = [name for _, name in categories]
+    category_names.append("+ New Category")
+    
+    cat_var = tk.StringVar(value=current_category)
+    cat_dropdown = ctk.CTkOptionMenu(popup, values=category_names, variable=cat_var)
+    cat_dropdown.pack(padx=10, fill="x")
 
-    button_frame = ctk.CTkFrame(popup, fg_color="transparent")
-    button_frame.pack(pady=(0, 10), padx=10, fill="x", side="bottom")
+    def on_cat_change(choice):
+        if choice == "+ New Category":
+            new_cat = ctk.CTkInputDialog(text="Enter new category name:", title="New Category").get_input()
+            if new_cat and new_cat.strip():
+                new_cat = new_cat.strip()
+                cat_id = create_new_category(new_cat)
+                if cat_id:
+                    category_names.insert(-1, new_cat)
+                    cat_var.set(new_cat)
+                    cat_dropdown.configure(values=category_names)
+                    if category_dropdown:
+                        category_dropdown.configure(values=get_categories())
+                else:
+                    messagebox.showerror("Error", "Failed to create new category.")
+                    cat_var.set(current_category)
+            else:
+                cat_var.set(current_category)
+    cat_dropdown.configure(command=on_cat_change)
 
+    # Macro Content
+    content_label = ctk.CTkLabel(popup, text="Macro Content:")
+    content_label.pack(padx=10, pady=(10, 0), anchor="w")
+    content_text = ctk.CTkTextbox(popup, height=6)
+    content_text.insert("1.0", data["macros"][macro_id]["content"])
+    content_text.pack(padx=10, pady=(0, 10), fill="both", expand=True)
+
+    # Buttons
+    btn_frame = ctk.CTkFrame(popup)
+    btn_frame.pack(fill="x", padx=10, pady=(0, 10))
+    
     def save_changes_action():
         new_name = name_entry.get().strip()
-        new_content = content_text.get("1.0", "end-1c").strip()
-        if not new_name: messagebox.showerror("Input Error", "Macro Name cannot be empty.", parent=popup); return
-        if not new_content: messagebox.showerror("Input Error", "Macro Content cannot be empty.", parent=popup); return
-        if new_name != original_name and new_name in macros_dict: messagebox.showerror("Name Conflict", f"The name '{new_name}' already exists.", parent=popup); return
-
-        temp_macros = macros_dict.copy()
-        if new_name != original_name:
-            if original_name in temp_macros: del temp_macros[original_name]
-            else: log_message(f"Warning: Original key '{original_name}' not found during edit rename.")
-        temp_macros[new_name] = new_content
-
-        if save_macros(temp_macros):
-            macros_dict.clear(); macros_dict.update(temp_macros) # Update main dict on success
-            log_message(f"Edited macro '{original_name}' (now '{new_name}').")
-            update_list_func(new_name) # Refresh list and select edited item
+        new_category_name = cat_var.get().strip() or "Uncategorized"
+        new_content = content_text.get("1.0", "end").strip()
+        
+        if not new_name:
+            messagebox.showerror("Error", "Macro name cannot be empty.")
+            return
+            
+        new_cat_id = get_category_by_name(new_category_name)
+        if not new_cat_id:
+            messagebox.showerror("Error", "Invalid category selected.")
+            return
+            
+        if new_name != macro_name_to_edit and get_macro_by_name(new_name, new_cat_id):
+            messagebox.showerror("Error", "A macro with this name already exists in this category.")
+            return
+            
+        if update_macro_in_data(macro_id, new_cat_id, new_name, new_content):
+            if (current_category, macro_name_to_edit) in macros_dict:
+                del macros_dict[(current_category, macro_name_to_edit)]
+            macros_dict[(new_category_name, new_name)] = new_content
+            update_list_func((new_category_name, new_name))
             popup.destroy()
+            if category_dropdown:
+                category_dropdown.configure(values=get_categories())
+                category_dropdown.set("All")
         else:
-             messagebox.showerror("Save Error", "Could not save changes to macro file.", parent=popup)
+            messagebox.showerror("Error", "Failed to save macro to data file.")
 
-    def cancel_action(): popup.destroy()
+    save_btn = ctk.CTkButton(btn_frame, text="Save Changes", command=save_changes_action)
+    save_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
+    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=popup.destroy, fg_color="gray")
+    cancel_btn.pack(side="right", padx=(5, 0), expand=True, fill="x")
 
-    save_button = ctk.CTkButton(button_frame, text="Save Changes", command=save_changes_action)
-    save_button.pack(side="left", padx=(0, 10))
-    cancel_button = ctk.CTkButton(button_frame, text="Cancel", command=cancel_action, fg_color="gray")
-    cancel_button.pack(side="right")
+def create_category_window(update_list_func, category_dropdown):
+    """Create and show the category management window."""
+    category_window = ctk.CTkToplevel()
+    category_window.title("Manage Macro Categories")
+    category_window.geometry("506x400")  # 10% wider than 460
+    category_window.grab_set()
 
-    name_entry.bind("<Return>", lambda event: content_text.focus())
-    content_text.bind("<Control-Return>", lambda event: save_changes_action())
-    popup.protocol("WM_DELETE_WINDOW", cancel_action)
+    # --- HEADER TOOLBAR ---
+    header_frame = ctk.CTkFrame(category_window, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    # App icon (if you want, else comment out)
+    try:
+        from PIL import Image, ImageTk
+        icon_path = os.path.join(os.path.dirname(__file__), "your_icon.ico")  # Update path as needed
+        if os.path.exists(icon_path):
+            icon_img = Image.open(icon_path).resize((28, 28))
+            icon_photo = ImageTk.PhotoImage(icon_img)
+            icon_label = tk.Label(header_frame, image=icon_photo, bg="#181C22")
+            icon_label.image = icon_photo
+            icon_label.pack(side="left", padx=(12, 8), pady=6)
+    except Exception:
+        pass
+    # Title
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="Manage Macro Categories",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(8, 0), pady=6)
+    # Optional: Add a close button on the right
+    close_btn = ctk.CTkButton(
+        header_frame, text="✕", width=32, fg_color="#23272E", text_color="white",
+        hover_color="#B22222", command=category_window.destroy
+    )
+    close_btn.pack(side="right", padx=10, pady=6)
 
-# --- Refresh Function ---
+    data = load_macro_data()
+    categories = data["categories"]
 
-def refresh_data_from_file(macros_dict, update_list_func):
-    """
-    Clears the current macro dictionary, reloads from the macro file on disk,
-    and updates the UI list. Used after potential external file edits.
-    """
-    global selected_macro_name # Access global to clear selection if needed
+    # Initialize category_order from data or create new
+    category_order = data.get("category_order", [])
+    if not category_order:  # If no order exists, create one
+        category_order = list(categories.keys())
+        # Always put "Uncategorized" first if it exists
+        unc_id = next((cat_id for cat_id, cat in categories.items() if cat["name"] == "Uncategorized"), None)
+        if unc_id:
+            category_order.remove(unc_id)
+            category_order.insert(0, unc_id)
+        # Save the initial order
+        save_macro_data(data, category_order)
 
-    log_message("User initiated refresh from file.")
-    print("Refreshing list from file...") # Console feedback
+    list_frame = ctk.CTkScrollableFrame(category_window)
+    list_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # Store current selection to potentially restore later
-    current_selection = selected_macro_name
+    button_frame = ctk.CTkFrame(category_window)
+    button_frame.pack(fill="x", padx=10, pady=5)
 
-    # Reload data from the file
-    reloaded_macros = load_macros()
+    def update_category_list():
+        for widget in list_frame.winfo_children():
+            widget.destroy()
+            
+        category_order[:] = [cat_id for cat_id in category_order if cat_id in categories]
+        
+        for idx, cat_id in enumerate(category_order):
+            cat_data = categories[cat_id]
+            frame = ctk.CTkFrame(list_frame, fg_color="#23272E", corner_radius=8)
+            frame.pack(fill="x", pady=(8 if idx == 1 else 4, 4), padx=2)  # Spacer after "Uncategorized"
+            
+            # Category label with style
+            label = ctk.CTkLabel(
+                frame, 
+                text=cat_data["name"], 
+                font=("Segoe UI", 13),  # <-- removed "bold"
+                text_color="#00BFFF" if cat_data["name"] == "Uncategorized" else "white"
+            )
+            label.pack(side="left", padx=(10, 32))  # <-- 32px right padding for button wall
+            
+            if cat_data["name"] != "Uncategorized":
+                btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+                btn_frame.pack(side="right", padx=5)
+                
+                btn_style = {"font": ("Segoe UI", 11, "bold"), "text_color": "white"}
+                
+                # Edit button
+                edit_btn = ctk.CTkButton(btn_frame, text="Edit", width=50, **btn_style, command=lambda c=cat_id: edit_category_popup(c))
+                edit_btn.pack(side="left", padx=(0, 6))
+                # Delete button
+                delete_btn = ctk.CTkButton(btn_frame, text="Delete", width=60, **btn_style, command=lambda c=cat_id: delete_category(c))
+                delete_btn.pack(side="left", padx=(0, 6))
+                # Top button
+                top_btn = ctk.CTkButton(btn_frame, text="Top", width=40, **btn_style, command=lambda c=cat_id: move_category(c, "top"))
+                top_btn.pack(side="left", padx=(0, 6))
+                # Up button
+                up_btn = ctk.CTkButton(btn_frame, text="↑", width=30, **btn_style, command=lambda c=cat_id: move_category(c, "up"))
+                up_btn.pack(side="left", padx=(0, 6))
+                # Down button
+                down_btn = ctk.CTkButton(btn_frame, text="↓", width=30, **btn_style, command=lambda c=cat_id: move_category(c, "down"))
+                down_btn.pack(side="left", padx=(0, 6))
+                # Bottom button
+                bottom_btn = ctk.CTkButton(btn_frame, text="Bottom", width=40, **btn_style, command=lambda c=cat_id: move_category(c, "bottom"))
+                bottom_btn.pack(side="left", padx=(0, 0))
 
-    # Check if loading failed (load_macros handles message boxes / returns None)
-    if reloaded_macros is None or not isinstance(reloaded_macros, dict):
-        log_message("Refresh failed because file loading returned invalid data.")
-        print("Refresh failed.")
-        # Clear the dict even if load failed, to show empty state
-        macros_dict.clear()
-    else:
-        # Update the main dictionary only if load was successful
-        macros_dict.clear()
-        macros_dict.update(reloaded_macros)
+    def move_category(cat_id, direction):
+        idx = category_order.index(cat_id)
+        if direction == "top" and idx > 1:  # Don't move above "Uncategorized"
+            # Remove from current position and insert after "Uncategorized"
+            category_order.pop(idx)
+            category_order.insert(1, cat_id)
+        elif direction == "bottom":
+            # Remove from current position and append to end
+            category_order.pop(idx)
+            category_order.append(cat_id)
+        elif direction == "up" and idx > 1:  # Don't move above "Uncategorized"
+            category_order[idx], category_order[idx-1] = category_order[idx-1], category_order[idx]
+        elif direction == "down" and idx < len(category_order)-1:
+            category_order[idx], category_order[idx+1] = category_order[idx+1], category_order[idx]
+        
+        update_category_list()
+        save_macro_data(data, category_order)  # Save after move
+        if category_dropdown:
+            category_dropdown.configure(values=get_categories())
+            category_dropdown.set("All")
+        update_list_func()
 
-    # Clear selection state before updating list, let update_list handle re-selection
-    selected_macro_name = None
+    def add_category():
+        name = ctk.CTkInputDialog(text="Enter category name:", title="Add Category").get_input()
+        if name and name.strip():
+            name = name.strip()
+            if not any(cat["name"] == name for cat in categories.values()):
+                cat_id = create_new_category(name)
+                if cat_id:
+                    # Reload data to get the new category
+                    data = load_macro_data()
+                    categories.clear()
+                    categories.update(data["categories"])
+                    
+                    # Add to order list if not already present
+                    if cat_id not in category_order:
+                        category_order.append(cat_id)
+                    
+                    # Save the updated order
+                    save_macro_data(data, category_order)
+                    
+                    # Update the UI
+                    update_category_list()
+                    if category_dropdown:
+                        category_dropdown.configure(values=get_categories())
+                        category_dropdown.set("All")
+                    update_list_func()
+                    log_message(f"Added new category: {name}")
+            else:
+                messagebox.showerror("Error", "A category with this name already exists.")
 
-    # Update the UI list
-    # Try to restore selection if the item still exists after reload
-    update_list_func(current_selection if current_selection in macros_dict else None)
+    def delete_category(cat_id):
+        cat_name = categories[cat_id]["name"]
+        associated_macros = [mid for mid, macro in data["macros"].items() if macro["category_id"] == cat_id]
+        if associated_macros:
+            dialog = ctk.CTkToplevel(category_window)
+            dialog.title("Delete Category")
+            dialog.geometry("370x170")
+            dialog.grab_set()
+            ctk.set_appearance_mode(ctk.get_appearance_mode())  # Match app theme
+            msg = ctk.CTkLabel(dialog, text=f"Category '{cat_name}' has {len(associated_macros)} macro(s).\nWhat would you like to do?")
+            msg.pack(pady=15)
+            btn_frame = ctk.CTkFrame(dialog)
+            btn_frame.pack(pady=10)
+            def delete_macros():
+                for mid in associated_macros:
+                    del data["macros"][mid]
+                del categories[cat_id]
+                save_macro_data(data, category_order)
+                dialog.destroy()
+                update_category_list()
+                category_dropdown.configure(values=get_categories())
+                category_dropdown.set("All")
+                update_list_func()
+                log_message(f"Deleted category '{cat_name}' and its macros.")
+            def move_to_uncategorized():
+                unc_id = get_category_by_name("Uncategorized") or create_new_category("Uncategorized")
+                for mid in associated_macros:
+                    data["macros"][mid]["category_id"] = unc_id
+                del categories[cat_id]
+                save_macro_data(data, category_order)
+                dialog.destroy()
+                update_category_list()
+                category_dropdown.configure(values=get_categories())
+                category_dropdown.set("All")
+                update_list_func()
+                log_message(f"Moved macros from '{cat_name}' to Uncategorized and deleted category.")
+            del_btn = ctk.CTkButton(btn_frame, text="Delete Macros", fg_color="red", command=delete_macros)
+            del_btn.pack(side="left", padx=10)
+            move_btn = ctk.CTkButton(btn_frame, text="Move to Uncategorized", command=move_to_uncategorized)
+            move_btn.pack(side="left", padx=10)
+            cancel_btn = ctk.CTkButton(dialog, text="Cancel", fg_color="gray", command=dialog.destroy)
+            cancel_btn.pack(pady=5)
+        else:
+            if messagebox.askyesno("Confirm Delete", f"Delete category '{cat_name}'?"):
+                del categories[cat_id]
+                save_macro_data(data, category_order)
+                update_category_list()
+                category_dropdown.configure(values=get_categories())
+                category_dropdown.set("All")
+                update_list_func()
+                log_message(f"Deleted category: {cat_id}")
 
-    log_message(f"Refresh complete. Loaded {len(macros_dict)} macros.")
-    print(f"Refresh complete. Found {len(macros_dict)} macros.")
+    def sort_alphabetically():
+        unc_id = [cat_id for cat_id in category_order if categories[cat_id]["name"] == "Uncategorized"][0]
+        rest = sorted([cat_id for cat_id in category_order if categories[cat_id]["name"] != "Uncategorized"],
+                      key=lambda cid: categories[cid]["name"].lower())
+        category_order[:] = [unc_id] + rest
+        update_category_list()
+        save_macro_data(data, category_order)
+        category_dropdown.configure(values=get_categories())
+        category_dropdown.set("All")
+        update_list_func()
 
-# --- Main Application Window ---
+    def on_close():
+        if category_dropdown:
+            category_dropdown.configure(values=get_categories())
+            category_dropdown.set("All")
+        update_list_func()
+        category_window.destroy()
 
-def create_macro_window(macros_dict):
-    """Creates the main GUI window using CustomTkinter."""
-    global selected_macro_name, macro_list_items # Allow modification
+    sort_btn = ctk.CTkButton(button_frame, text="Sort Alphabetically", command=sort_alphabetically)
+    sort_btn.pack(side="left", padx=5)
+    add_btn = ctk.CTkButton(button_frame, text="Add Category", command=add_category)
+    add_btn.pack(side="left", padx=5)
+    close_btn = ctk.CTkButton(button_frame, text="Close", command=on_close)
+    close_btn.pack(side="right", padx=5)
+
+    # Initial update of the category list
+    update_category_list()
+
+def edit_category_popup(cat_id):
+    # Simple popup to edit category name/description
+    cat_data = categories[cat_id]
+    popup = ctk.CTkToplevel()
+    popup.title("Edit Category")
+    popup.geometry("350x180")
+    popup.grab_set()
+    name_label = ctk.CTkLabel(popup, text="Category Name:")
+    name_label.pack(pady=(10, 0))
+    name_entry = ctk.CTkEntry(popup)
+    name_entry.insert(0, cat_data["name"])
+    name_entry.pack(pady=5, padx=10, fill="x")
+    desc_label = ctk.CTkLabel(popup, text="Description (optional):")
+    desc_label.pack(pady=(10, 0))
+    desc_entry = ctk.CTkEntry(popup)
+    desc_entry.insert(0, cat_data.get("description", ""))
+    desc_entry.pack(pady=5, padx=10, fill="x")
+    def save_edit():
+        new_name = name_entry.get().strip()
+        new_desc = desc_entry.get().strip()
+        if not new_name:
+            messagebox.showerror("Error", "Category name cannot be empty.")
+            return
+        cat_data["name"] = new_name
+        cat_data["description"] = new_desc
+        cat_data["modified"] = datetime.now().isoformat()
+        save_macro_data(data, category_order)
+        update_category_list()
+        if category_dropdown:
+            category_dropdown.configure(values=get_categories())
+            category_dropdown.set("All")
+        update_list_func()
+        popup.destroy()
+    save_btn = ctk.CTkButton(popup, text="Save", command=save_edit)
+    save_btn.pack(pady=10)
+
+# --- MAIN APPLICATION WINDOW ---
+def create_macro_window():
+    """Main application window with menu bar, category dropdown, and macro list."""
+    global selected_macro_name, macro_list_items, selected_category, macros_dict
+
+    # Initialize macros_dict from XML data
+    data = load_macro_data()
+    macros_dict = {}
+    for macro_id, macro in data["macros"].items():
+        cat_id = macro["category_id"]
+        cat_name = data["categories"].get(cat_id, {}).get("name", "Uncategorized")
+        name = macro["name"]
+        content = macro["content"]
+        macros_dict[(cat_name, name)] = content
 
     window = ctk.CTk()
     window.title("MacroMouse")
-    window.geometry("850x600+150+100")
-    window.minsize(650, 500)
-    window.resizable(True, True)
+    window.geometry("1000x700")
+    window.minsize(900, 600)
 
-    window.lift()
-    window.attributes('-topmost', True)
-    window.after(200, lambda: window.attributes('-topmost', False))
+    config = load_config()
+    if 'icon_path' in config and os.path.exists(config['icon_path']):
+        try:
+            window.iconbitmap(config['icon_path'])
+        except Exception as e:
+            log_message(f"Error loading saved icon: {e}")
 
-    def on_close():
-        log_message("Close button clicked. Exiting application.")
-        window.quit()
-    window.protocol("WM_DELETE_WINDOW", on_close)
+    menubar = tk.Menu(window)
+    window.config(menu=menubar)
+    
+    file_menu = tk.Menu(menubar, tearoff=0)
+    menubar.add_cascade(label="File", menu=file_menu)
+    file_menu.add_command(label="Open Data File in Editor", command=open_macro_file)
+    file_menu.add_separator()
+    file_menu.add_command(label="Change App Icon", command=lambda: change_app_icon(window))
+    
+    tools_menu = tk.Menu(menubar, tearoff=0)
+    menubar.add_cascade(label="Tools", menu=tools_menu)
+    tools_menu.add_command(label="Macro Categories", command=lambda: create_category_window(update_list, category_dropdown))
+    # Theme submenu
+    theme_menu = tk.Menu(tools_menu, tearoff=0)
+    tools_menu.add_cascade(label="Theme", menu=theme_menu)
+    theme_mode = tk.StringVar(value=load_config().get('theme_mode', 'Dark'))
+    theme_menu.add_radiobutton(label="Dark", variable=theme_mode, value="Dark", command=lambda: set_theme("Dark"))
+    theme_menu.add_radiobutton(label="Light", variable=theme_mode, value="Light", command=lambda: set_theme("Light"))
+    
+    help_menu = tk.Menu(menubar, tearoff=0)
+    menubar.add_cascade(label="Help", menu=help_menu)
+    help_menu.add_command(label="About", command=lambda: messagebox.showinfo("About MacroMouse", "MacroMouse v1.0\nA macro management tool."))
 
-    # --- Configure Grid Layout ---
-    window.grid_columnconfigure(0, weight=1, minsize=280) # Left column
-    window.grid_columnconfigure(1, weight=3)             # Right column
-    window.grid_rowconfigure(0, weight=1)                # Allow row expansion
+    window.grid_rowconfigure(0, weight=1)
+    window.grid_columnconfigure(0, weight=1)
+    window.grid_columnconfigure(1, weight=2)
 
-    # --- Left Frame (Controls and List) ---
-    left_frame = ctk.CTkFrame(window, fg_color="transparent")
-    left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-    left_frame.grid_columnconfigure(0, weight=1)
-    # Row Indexing: 0:Search, 1:List, 2:Add/Edit/Del, 3:File Mgmt, 4:Close
-    left_frame.grid_rowconfigure(1, weight=1) # Make list area expand
+    left_frame = ctk.CTkFrame(window)
+    left_frame.grid(row=0, column=0, sticky="nsew")
+    # Set row weights for resizing
+    left_frame.grid_rowconfigure(0, weight=0)  # category_frame
+    left_frame.grid_rowconfigure(1, weight=0)  # search_frame
+    left_frame.grid_rowconfigure(2, weight=1)  # macro_list_frame (main resizable area)
+    left_frame.grid_rowconfigure(3, weight=0)  # action_button_frame
+    left_frame.grid_rowconfigure(4, weight=0)  # close_button
 
-    # --- Search Row (Row 0) ---
-    search_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
-    search_frame.grid(row=0, column=0, padx=10, pady=(0, 5), sticky="ew")
-    search_frame.grid_columnconfigure(0, weight=1)
-    search_label = ctk.CTkLabel(search_frame, text="Search Macros:")
-    search_label.grid(row=0, column=0, sticky="w")
+    category_frame = ctk.CTkFrame(left_frame)
+    category_frame.grid(row=0, column=0, padx=10, pady=(10, 20), sticky="ew")
+    category_label = ctk.CTkLabel(category_frame, text="Category:")
+    category_label.pack(side="left", padx=(0, 5))
+
+    def on_category_change(choice):
+        global selected_category
+        selected_category = choice
+        update_list()
+
+    category_dropdown = ctk.CTkOptionMenu(
+        category_frame,
+        values=get_categories(),
+        command=on_category_change
+    )
+    category_dropdown.pack(side="left", fill="x", expand=True)
+    category_dropdown.set("All")
+
     search_var = tk.StringVar()
+    search_frame = ctk.CTkFrame(left_frame)
+    search_frame.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="ew")
+    search_label = ctk.CTkLabel(search_frame, text="Search Macros:")
+    search_label.pack(side="left", padx=(0, 5))
     search_entry = ctk.CTkEntry(search_frame, textvariable=search_var)
-    search_entry.grid(row=1, column=0, pady=(0, 5), sticky="ew")
+    search_entry.pack(side="left", fill="x", expand=True)
 
-    # --- Macro List Area (Row 1) ---
+    refresh_btn = ctk.CTkButton(search_frame, text="Refresh", width=80, command=lambda: update_list())
+    refresh_btn.pack(side="right", padx=(5, 0))
+
+    search_var.trace_add("write", lambda *args: update_list())
+
     macro_list_frame = ctk.CTkScrollableFrame(left_frame, label_text="Available Macros")
-    macro_list_frame.grid(row=1, column=0, padx=10, pady=0, sticky="nsew")
+    macro_list_frame.grid(row=2, column=0, padx=10, pady=(0, 0), sticky="nsew")
     macro_list_frame.grid_columnconfigure(0, weight=1)
 
-    # --- Preview Area (Right Side) ---
+    action_button_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
+    action_button_frame.grid(row=3, column=0, padx=10, pady=(10, 5), sticky="ew")
+    action_button_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
+    def add_action():
+        add_macro_popup(update_list, category_dropdown)
+
+    def edit_action():
+        if selected_macro_name:
+            edit_macro_popup(selected_macro_name[1], update_list, category_dropdown)
+        else:
+            messagebox.showwarning("Select Macro", "Please select a macro from the list to edit.")
+
+    def remove_action():
+        global selected_macro_name
+        if selected_macro_name:
+            if messagebox.askyesno("Confirm Delete", f"Are you sure you want to remove '{selected_macro_name[1]}'?"):
+                data = load_macro_data()
+                macro_id = None
+                for mid, macro in data["macros"].items():
+                    if macro["name"] == selected_macro_name[1]:
+                        macro_id = mid
+                        break
+                if macro_id and delete_macro_from_data(macro_id):
+                    if selected_macro_name in macros_dict:
+                        del macros_dict[selected_macro_name]
+                    selected_macro_name = None
+                    update_list()
+                else:
+                    messagebox.showerror("Error", "Failed to delete macro from data file.")
+
+    add_btn = ctk.CTkButton(action_button_frame, text="Add Macro", command=add_action)
+    add_btn.grid(row=0, column=0, padx=2, sticky="ew")
+    edit_btn = ctk.CTkButton(action_button_frame, text="Edit Macro", command=edit_action)
+    edit_btn.grid(row=0, column=1, padx=2, sticky="ew")
+    del_btn = ctk.CTkButton(action_button_frame, text="Delete Macro", command=remove_action, fg_color="red")
+    del_btn.grid(row=0, column=2, padx=2, sticky="ew")
+
+    close_button = ctk.CTkButton(left_frame, text="Close MacroMouse", command=window.destroy, fg_color="gray", height=35)
+    close_button.grid(row=4, column=0, padx=10, pady=(10, 10), sticky="ew")
+
     preview_frame = ctk.CTkFrame(window)
     preview_frame.grid(row=0, column=1, padx=(0, 10), pady=10, sticky="nsew")
     preview_frame.grid_rowconfigure(1, weight=1)
@@ -554,186 +956,118 @@ def create_macro_window(macros_dict):
     preview_text.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
     preview_text.configure(state="disabled")
 
-    # --- Add/Edit/Remove Button Area (Row 2) ---
-    action_button_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
-    action_button_frame.grid(row=2, column=0, padx=10, pady=(10, 5), sticky="ew")
-    action_button_frame.grid_columnconfigure((0, 1), weight=1)
+    def clear_macro_list_widgets():
+        global macro_list_items
+        for widget in macro_list_items:
+            widget.destroy()
+        macro_list_items = []
 
-    # --- File Management Buttons Frame (Row 3) ---
-    file_mgmt_frame = ctk.CTkFrame(left_frame)
-    file_mgmt_frame.grid(row=3, column=0, padx=10, pady=(10, 5), sticky="ew")
-    file_mgmt_frame.grid_columnconfigure(0, weight=1) # Allow expansion via columnspan
+    def update_list(selected=None):
+        clear_macro_list_widgets()
+        search_term = search_var.get()
+        macros = get_macros_for_ui(selected_category, search_term)
+        if not macros:
+            no_results_label = ctk.CTkLabel(macro_list_frame, text="No macros found. Click 'Add Macro' to start.", text_color="gray")
+            no_results_label.pack(pady=5)
+            macro_list_items.append(no_results_label)
+            update_preview(None)
+            highlight_selected_item(None)
+            return
+        for cat, name, content in macros:
+            macro_button = ctk.CTkButton(
+                macro_list_frame, text=name, anchor="w", fg_color="transparent", hover=False, border_width=0,
+                text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"],
+                command=lambda c=cat, n=name: on_macro_select(c, n)
+            )
+            macro_button.pack(fill="x", pady=(0, 1), padx=1)
+            # Add double-click event for copy
+            def on_double_click(event, c=cat, n=name):
+                copy_macro((c, n))
+                show_copied_popup(window, n)
+            macro_button.bind("<Double-Button-1>", on_double_click)
+            macro_list_items.append(macro_button)
+        if selected:
+            on_macro_select(*selected)
 
-    # --- UI Interaction Functions --- Needed by buttons/list below ---
-    def update_preview(selected_name_preview):
+    def update_preview(selected_key):
         preview_text.configure(state="normal")
         preview_text.delete("1.0", "end")
-        if selected_name_preview and selected_name_preview in macros_dict:
-            preview_text.insert("1.0", macros_dict[selected_name_preview])
+        if selected_key and selected_key in macros_dict:
+            preview_text.insert("1.0", macros_dict[selected_key])
         preview_text.configure(state="disabled")
 
-    def highlight_selected_item(button_to_highlight):
-         selected_color = ctk.ThemeManager.theme["CTkButton"]["hover_color"]
-         for item_widget in macro_list_items:
-             if isinstance(item_widget, ctk.CTkButton):
-                 item_widget.configure(border_width=0)
-         if button_to_highlight and isinstance(button_to_highlight, ctk.CTkButton):
-             button_to_highlight.configure(border_width=1, border_color=selected_color)
+    def highlight_selected_item(selected_key):
+        selected_color = ctk.ThemeManager.theme["CTkButton"]["hover_color"]
+        for item_widget in macro_list_items:
+            if isinstance(item_widget, ctk.CTkButton):
+                item_widget.configure(border_width=0)
+        if selected_key and isinstance(selected_key, tuple):
+            for item_widget in macro_list_items:
+                if isinstance(item_widget, ctk.CTkButton) and item_widget.cget("text") == selected_key[1]:
+                    item_widget.configure(border_width=1, border_color=selected_color)
+                    break
 
-    def on_macro_select(name, button_widget):
+    def on_macro_select(category, name):
         global selected_macro_name
-        if not isinstance(button_widget, ctk.CTkButton): return
-        selected_macro_name = name
+        selected_macro_name = (category, name)
         update_preview(selected_macro_name)
-        highlight_selected_item(button_widget)
+        highlight_selected_item(selected_macro_name)
 
-    def on_macro_double_click(name): copy_macro(name, macros_dict)
-    def clear_macro_list_widgets():
-         global macro_list_items
-         for widget in macro_list_items: widget.destroy()
-         macro_list_items = []
+    # --- Theme Menu ---
+    def set_theme(mode):
+        ctk.set_appearance_mode(mode)
+        config = load_config()
+        config['theme_mode'] = mode
+        save_config(config)
 
-    def update_list(select_name_after_update=None):
-        global selected_macro_name, macro_list_items
-        clear_macro_list_widgets()
-        search_term = search_var.get().lower()
-        sorted_names = sorted(macros_dict.keys(), key=str.lower)
-        filtered_names = [name for name in sorted_names if search_term in name.lower()]
-        selected_button_widget = None; newly_selected_name = None
+    def show_copied_popup(parent, macro_name):
+        popup = ctk.CTkToplevel(parent)
+        popup.title("Copied")
+        popup.geometry("320x90")
+        popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        popup.grab_set()
+        ctk.CTkLabel(popup, text=f"Macro '{macro_name}' copied to clipboard.").pack(pady=18)
+        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=80).pack(pady=(0, 10))
+        # Center the popup over the parent
+        popup.update_idletasks()
+        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (popup.winfo_width() // 2)
+        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (popup.winfo_height() // 2)
+        popup.geometry(f"+{x}+{y}")
 
-        if not filtered_names:
-             no_results_label = ctk.CTkLabel(macro_list_frame, text="No matching macros found.", text_color="gray")
-             no_results_label.pack(pady=5); macro_list_items.append(no_results_label)
-             selected_macro_name = None; update_preview(None); highlight_selected_item(None)
-        else:
-            for name in filtered_names:
-                macro_button = ctk.CTkButton(macro_list_frame, text=name, anchor="w", fg_color="transparent", hover=False, border_width=0, text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"], command=lambda n=name, b=None: on_macro_select(n, b))
-                macro_button.configure(command=lambda n=name, b=macro_button: on_macro_select(n, b))
-                macro_button.pack(fill="x", pady=(0, 1), padx=1)
-                macro_button.bind("<Double-Button-1>", lambda event, n=name: on_macro_double_click(n))
-                macro_list_items.append(macro_button)
-                if select_name_after_update and name == select_name_after_update: selected_button_widget = macro_button; newly_selected_name = name
-                elif not select_name_after_update and selected_macro_name and name == selected_macro_name: selected_button_widget = macro_button; newly_selected_name = name
-
-        if newly_selected_name and selected_button_widget:
-            selected_macro_name = newly_selected_name
-            highlight_selected_item(selected_button_widget)
-            update_preview(selected_macro_name)
-            window.after(50, lambda sb=selected_button_widget: macro_list_frame.scroll_to_widget(sb))
-        elif not newly_selected_name:
-            selected_macro_name = None; update_preview(None); highlight_selected_item(None)
-
-    # --- Action Handlers for Buttons ---
-    def edit_action():
-        if selected_macro_name: edit_macro_popup(macros_dict, selected_macro_name, update_list)
-        else: messagebox.showwarning("Select Macro", "Please select a macro from the list to edit.")
-    def remove_action():
-         global selected_macro_name
-         if selected_macro_name:
-             if messagebox.askyesno("Confirm Delete", f"Are you sure you want to permanently remove the macro '{selected_macro_name}'?"):
-                 if selected_macro_name in macros_dict:
-                     del macros_dict[selected_macro_name]
-                     if save_macros(macros_dict): log_message(f"Removed macro '{selected_macro_name}'."); selected_macro_name = None; update_list()
-                     else: messagebox.showerror("Error", "Failed to save changes after removing macro."); macros_dict.clear(); reloaded=load_macros(); macros_dict.update(reloaded if reloaded is not None else {}); update_list()
-                 else: messagebox.showerror("Error", "Selected macro seems to have already been removed."); selected_macro_name = None; update_list()
-         else: messagebox.showwarning("Select Macro", "Please select a macro from the list to remove.")
-
-    # --- Create and Place Action Buttons ---
-    add_macro_button = ctk.CTkButton(action_button_frame, text="Add", command=lambda: add_macro_popup(macros_dict, update_list))
-    add_macro_button.grid(row=0, column=0, padx=(0, 5), pady=5, sticky="ew")
-    edit_macro_button = ctk.CTkButton(action_button_frame, text="Edit", command=edit_action)
-    edit_macro_button.grid(row=0, column=1, padx=(5, 0), pady=5, sticky="ew")
-    remove_macro_button = ctk.CTkButton(action_button_frame, text="Remove", command=remove_action, fg_color="#D32F2F", hover_color="#B71C1C")
-    remove_macro_button.grid(row=1, column=0, columnspan=2, padx=0, pady=(5, 10), sticky="ew")
-
-    # --- Create and Place File Management Buttons ---
-    use_new_button = ctk.CTkButton(file_mgmt_frame, text="Use New File...", command=lambda: use_new_macro_file(macros_dict, update_list), height=35)
-    use_new_button.grid(row=0, column=0, padx=(0, 5), pady=5, sticky="ew")
-    change_location_button = ctk.CTkButton(file_mgmt_frame, text="Move File Location...", command=lambda: change_macro_file_location(macros_dict, update_list), height=35)
-    change_location_button.grid(row=0, column=1, padx=(5, 0), pady=5, sticky="ew")
-    open_button = ctk.CTkButton(file_mgmt_frame, text="Open File in Editor", command=open_macro_file, height=35)
-    open_button.grid(row=1, column=0, columnspan=2, padx=0, pady=5, sticky="ew")
-    refresh_list_button = ctk.CTkButton(file_mgmt_frame, text="Refresh Macro List", command=lambda: refresh_data_from_file(macros_dict, update_list), height=35)
-    refresh_list_button.grid(row=2, column=0, columnspan=2, padx=0, pady=(5, 10), sticky="ew") # Placed below Open button
-
-    # --- Close Button (Row 4 - Main Left Frame Grid) ---
-    close_button = ctk.CTkButton(left_frame, text="Close MacroMouse", command=on_close, fg_color="gray", height=35)
-    close_button.grid(row=4, column=0, padx=10, pady=(10, 10), sticky="ew")
-
-    # --- Initial Setup & Bindings ---
-    search_var.trace_add("write", lambda name, index, mode: update_list())
-    update_list() # Initial population
-
-    window.mainloop() # Start the Tkinter event loop
-
-# --- Main Execution ---
-
-def main():
-    """Main function: Sets up paths, loads data, and launches the GUI."""
-    global macro_file_path, log_file_path
-
-    # Determine Application Path
-    if getattr(sys, 'frozen', False): base_path = os.path.dirname(sys.executable)
-    elif __file__: base_path = os.path.dirname(os.path.abspath(__file__))
-    else: base_path = os.path.abspath(".")
-
-    # Define Data Storage Location
-    data_subfolder = "MacroMouse_Data"
-    app_data_path = os.path.join(base_path, data_subfolder)
-
-    # Define Default File Paths
-    default_macro_filename = "macros.txt"
-    default_log_filename = "MacroMouse.log"
-    default_macro_path = os.path.join(app_data_path, default_macro_filename)
-    default_log_path = os.path.join(app_data_path, default_log_filename)
-
-    # Ensure Data Directory Exists
-    try: os.makedirs(app_data_path, exist_ok=True)
-    except Exception as e: messagebox.showerror("Fatal Error", f"Could not create data directory:\n{app_data_path}\nError: {e}\nExiting."); sys.exit(1)
-
-    # Set Global Paths
-    macro_file_path = default_macro_path
-    log_file_path = default_log_path
-
-    # Initialize Logging
-    log_message("="*20 + " MacroMouse Session Start " + "="*20)
-    log_message(f"Base path: {base_path}")
-    log_message(f"Data path: {app_data_path}")
-    log_message(f"Initial macro file: {macro_file_path}")
-    log_message(f"Initial log file: {log_file_path}")
-
-    # Load Initial Macros
-    macros_data = {}
-    if not os.path.exists(macro_file_path):
-        log_message(f"Default macro file not found: {macro_file_path}")
-        answer = messagebox.askyesno("Setup: Macro File", f"Macro file ({default_macro_filename}) not found in:\n{app_data_path}\n\nCreate a new file here?")
-        if answer:
-            try:
-                with open(macro_file_path, "w", encoding="utf-8") as f: f.write("# Welcome!\nAdd macros using the 'Add' button.\n\n")
-                log_message("Created new empty macro file."); macros_data = load_macros()
-            except Exception as e: messagebox.showerror("Error", f"Failed to create macro file: {e}"); log_message(f"Failed to create default macro file: {e}")
-        else: log_message("User chose not to create default file."); messagebox.showinfo("Info", "Starting without macros.\nUse UI buttons to manage files.")
-    else:
-        log_message("Default macro file found. Loading...")
-        loaded = load_macros()
-        if loaded is not None: macros_data = loaded # Only assign if load didn't fail critically
-
-    # Launch GUI
-    log_message("Starting main application window.")
-    create_macro_window(macros_data) # Pass loaded data
+    update_list()
+    window.mainloop()
+    
     log_message("Application window closed.")
     log_message("="*20 + " MacroMouse Session End " + "="*20 + "\n")
 
+def main():
+    """Main entry point for the application."""
+    global macro_data_file_path, log_file_path, config_file_path
+    app_data_dir = os.path.join(os.path.expanduser("~"), "MacroMouse_Data")
+    os.makedirs(app_data_dir, exist_ok=True)
+    macro_data_file_path = os.path.join(app_data_dir, "macros.xml")
+    log_file_path = os.path.join(app_data_dir, "MacroMouse.log")
+    config_file_path = os.path.join(app_data_dir, "config.json")
+    
+    data = load_macro_data()
+    if not any(cat["name"] == "Uncategorized" for cat in data["categories"].values()):
+        create_new_category("Uncategorized")
+    config = load_config()
+    theme_mode = config.get('theme_mode', 'Dark')
+    ctk.set_appearance_mode(theme_mode)
+    ctk.set_default_color_theme("dark-blue")
+    create_macro_window()
+
 if __name__ == "__main__":
-    # Set high DPI awareness for Windows if possible
     if sys.platform.startswith('win32'):
         try:
-            ctk.windll.shcore.SetProcessDpiAwareness(2) # PROCESS_PER_MONITOR_DPI_AWARE
+            import ctypes
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
             print("Note: Set DPI awareness to Per-Monitor Aware V2.")
-        except Exception as e: print(f"Note: Could not set DPI awareness (may require Windows 8.1+): {e}")
+        except Exception as e:
+            print(f"Note: Could not set DPI awareness: {e}")
 
-    # Set theme/appearance *before* creating any CTk widgets
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("dark-blue")
-
     main()

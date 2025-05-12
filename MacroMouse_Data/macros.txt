@@ -1,3 +1,19 @@
+# category:GPT-BYTE
+# Icon Files - PNGs
+When creating a PNG for a later ICO version:
+
+1.  Do not make the back ground the same color as the foreground.  This will allow me to remove the BG using transparency tools. 
+If you leave it in, it will completely remove everything of or near that color.
+
+2.  Do not leave padding on the inside edges. Use the full square space to allow for a larger ico when it's converted to an ICO file.
+
+# category:Uncategorized
+# Testing two, please delete
+Testing two, please delete
+
 # Welcome!
 Add macros using the 'Add' button.
+Testing Edit!  -Chris
+
+This is much better
 

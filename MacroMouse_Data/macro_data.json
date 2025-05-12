@@ -1,0 +1,12 @@
+{
+    "version": "1.0",
+    "categories": {
+        "CAT_DEFAULT": {
+            "name": "Uncategorized",
+            "created": "2025-05-12T11:53:31.521935",
+            "modified": "2025-05-12T11:53:31.521935",
+            "description": "Default category for uncategorized macros"
+        }
+    },
+    "macros": {}
+}
