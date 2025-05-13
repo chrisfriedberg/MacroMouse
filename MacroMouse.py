@@ -18,6 +18,9 @@ macro_list_items = []
 selected_category = "All"
 macro_data_file_path = None
 macros_dict = {}  # In-memory macro storage
+macro_usage_counts = {}  # Dictionary to track macro usage counts
+window = None  # Global reference to the main window
+update_list_func = None  # Global reference to the update_list function
 
 # --- LOGGING ---
 def get_log_timestamp():
@@ -326,6 +329,32 @@ def get_macros_for_ui(selected_category="All", search_term=""):
         if search_term and (search_term not in name.lower() and search_term not in content.lower()):
             continue
         macros.append((cat_name, name, content))
+    
+    # First sort all macros alphabetically
+    macros.sort(key=lambda x: x[1].lower())
+    
+    # Then identify and move the top 5 most used macros to the beginning
+    if macro_usage_counts:
+        # Filter usage counts to only include macros from the current category or search
+        filtered_usage_counts = {}
+        for (cat, name), count in macro_usage_counts.items():
+            # For 'All' category, include all macros, otherwise filter by the selected category
+            if selected_category == "All" or cat == selected_category:
+                # Check if this macro is in our current list (might be filtered by search)
+                if any(m[1] == name and (selected_category == "All" or m[0] == selected_category) for m in macros):
+                    filtered_usage_counts[(cat, name)] = count
+        
+        # Sort macros by their usage count
+        macros.sort(key=lambda x: (-filtered_usage_counts.get((x[0], x[1]), 0), x[1].lower()))
+        
+        # Optional: You can still separate top 5 from the rest if you want that visual distinction
+        # Extract top 5 most used macros
+        top_macros = [m for m in macros[:5] if filtered_usage_counts.get((m[0], m[1]), 0) > 0]
+        rest_macros = [m for m in macros if m not in top_macros]
+        
+        # Combine them back
+        macros = top_macros + rest_macros
+    
     return macros
 
 def get_categories():
@@ -345,7 +374,20 @@ def copy_macro(macro_key):
             pyperclip.copy(content)
             log_message(f"Copied macro '{macro_key[1]}' to clipboard.")
             print(f"Copied to clipboard: {macro_key[1]}")
+            
+            # Debug for usage counts
+            print(f"Before update: Usage count for {macro_key} = {macro_usage_counts.get(macro_key, 0)}")
+            
+            # Update usage count
+            macro_usage_counts[macro_key] = macro_usage_counts.get(macro_key, 0) + 1
+            print(f"After update: Usage count for {macro_key} = {macro_usage_counts[macro_key]}")
+            
+            # Debug for save function
+            save_result = save_usage_counts()
+            print(f"Save usage counts result: {save_result}")
+            
         except Exception as e:
+            print(f"Error updating usage counts: {e}")
             messagebox.showerror("Clipboard Error", f"Could not copy to clipboard: {e}")
             log_message(f"Clipboard error for macro '{macro_key[1]}': {e}")
     elif macro_key:
@@ -1160,7 +1202,8 @@ def edit_category_popup(cat_id, update_category_list=None, update_list_func=None
 def create_macro_window():
     """Main application window with menu bar, category dropdown, and macro list."""
     global selected_macro_name, macro_list_items, selected_category, macros_dict
-
+    global window, update_list_func  # Add this line
+    
     # Initialize macros_dict from XML data
     data = load_macro_data()
     macros_dict = {}
@@ -1171,7 +1214,7 @@ def create_macro_window():
         content = macro["content"]
         macros_dict[(cat_name, name)] = content
 
-    window = ctk.CTk()
+    window = ctk.CTk()  # This now sets the global window
     window.title("MacroMouse")
     window.geometry("1000x700")
     window.minsize(900, 600)
@@ -1205,6 +1248,7 @@ def create_macro_window():
     tools_menu = tk.Menu(menubar, tearoff=0)
     menubar.add_cascade(label="Tools", menu=tools_menu)
     tools_menu.add_command(label="Macro Categories", command=lambda: create_category_window(update_list, category_dropdown))
+    tools_menu.add_command(label="Delete All Macro Usage Counts", command=delete_all_usage_counts)
     # Theme submenu
     theme_menu = tk.Menu(tools_menu, tearoff=0)
     tools_menu.add_cascade(label="Theme", menu=theme_menu)
@@ -1266,7 +1310,7 @@ def create_macro_window():
 
     action_button_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
     action_button_frame.grid(row=3, column=0, padx=10, pady=(10, 5), sticky="ew")
-    action_button_frame.grid_columnconfigure((0, 1, 2), weight=1)
+    action_button_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
     def add_action():
         add_macro_popup(update_list, category_dropdown)
@@ -1295,12 +1339,55 @@ def create_macro_window():
                 else:
                     messagebox.showerror("Error", "Failed to delete macro from data file.")
 
+    def reset_order():
+        """Reset the macro order by keeping only top 5 counts and sorting the rest alphabetically."""
+        global macro_usage_counts
+        
+        # Get the top 5 most used macros across all categories
+        top_macros = sorted(macro_usage_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        # Clear all usage counts
+        macro_usage_counts.clear()
+        
+        # Add back only the top 5
+        for macro_key, count in top_macros:
+            if count > 0:  # Only keep macros that have been used
+                macro_usage_counts[macro_key] = count
+        
+        # Save the updated counts
+        save_usage_counts()
+        
+        # Re-fetch and sort macros
+        update_list()
+        
+        # Show a small popup to confirm reset
+        popup = ctk.CTkToplevel(window)
+        popup.title("Order Reset")
+        popup.geometry("350x120")
+        popup.attributes('-topmost', True)
+        popup.grab_set()
+        
+        # Create message based on how many top macros were kept
+        top_count = len(macro_usage_counts)
+        if top_count > 0:
+            message = f"Reset complete. Kept your top {top_count} most used macros\nat the top, all others are now sorted alphabetically."
+        else:
+            message = "Reset complete. All macros are now sorted alphabetically."
+        
+        label = ctk.CTkLabel(popup, text=message)
+        label.pack(pady=20)
+        
+        # Auto-close after 2.5 seconds
+        popup.after(2500, popup.destroy)
+
     add_btn = ctk.CTkButton(action_button_frame, text="Add Macro", command=add_action)
     add_btn.grid(row=0, column=0, padx=2, sticky="ew")
     edit_btn = ctk.CTkButton(action_button_frame, text="Edit Macro", command=edit_action)
     edit_btn.grid(row=0, column=1, padx=2, sticky="ew")
     del_btn = ctk.CTkButton(action_button_frame, text="Delete Macro", command=remove_action, fg_color="red")
     del_btn.grid(row=0, column=2, padx=2, sticky="ew")
+    reset_btn = ctk.CTkButton(action_button_frame, text="Reset Order", command=reset_order)
+    reset_btn.grid(row=0, column=3, padx=2, sticky="ew")
 
     close_button = ctk.CTkButton(left_frame, text="Close MacroMouse", command=window.destroy, fg_color="gray", height=35)
     close_button.grid(row=4, column=0, padx=10, pady=(10, 10), sticky="ew")
@@ -1428,6 +1515,9 @@ def create_macro_window():
     log_message("Application window closed.")
     log_message("="*20 + " MacroMouse Session End " + "="*20 + "\n")
 
+    # Store a reference to the update_list function
+    update_list_func = update_list
+
 def main():
     """Main entry point for the application."""
     global macro_data_file_path, log_file_path, config_file_path
@@ -1453,6 +1543,9 @@ def main():
     data = load_macro_data()
     if not any(cat["name"] == "Uncategorized" for cat in data["categories"].values()):
         create_new_category("Uncategorized")
+    
+    # Load usage counts
+    load_usage_counts()
     
     # Set theme from config
     config = load_config()
@@ -1654,6 +1747,145 @@ def styled_askyesno(title, message, parent=None):
 
 def styled_showerror(title, message, parent=None):
     return create_styled_messagebox(title, message, parent)
+
+def save_usage_counts():
+    """Save macro usage counts to a separate JSON file."""
+    global macro_data_file_path, macro_usage_counts
+    if not macro_data_file_path:
+        return False
+    
+    # Create the usage file path in the same directory as the macro data file
+    usage_file_path = os.path.join(os.path.dirname(macro_data_file_path), "usage_counts.json")
+    
+    try:
+        # Convert tuple keys to strings for JSON serialization
+        serializable_counts = {}
+        for key, count in macro_usage_counts.items():
+            # Use a separator unlikely to appear in category or macro names
+            serializable_key = f"{key[0]}|||{key[1]}"
+            serializable_counts[serializable_key] = count
+            
+        with open(usage_file_path, 'w') as f:
+            json.dump(serializable_counts, f, indent=4)
+        return True
+    except Exception as e:
+        log_message(f"Error saving usage counts: {e}")
+        return False
+
+def load_usage_counts():
+    """Load macro usage counts from a separate JSON file."""
+    global macro_data_file_path, macro_usage_counts
+    if not macro_data_file_path:
+        return
+    
+    usage_file_path = os.path.join(os.path.dirname(macro_data_file_path), "usage_counts.json")
+    
+    if not os.path.exists(usage_file_path):
+        return  # No usage data yet
+    
+    try:
+        with open(usage_file_path, 'r') as f:
+            serializable_counts = json.load(f)
+            
+        # Convert string keys back to tuples
+        macro_usage_counts.clear()
+        for key_str, count in serializable_counts.items():
+            parts = key_str.split("|||", 1)
+            if len(parts) == 2:
+                macro_usage_counts[(parts[0], parts[1])] = count
+    except Exception as e:
+        log_message(f"Error loading usage counts: {e}")
+
+def delete_all_usage_counts():
+    """Delete all macro usage counts after confirmation."""
+    global macro_usage_counts, window, update_list_func
+    
+    # Create styled confirmation dialog
+    confirm_dialog = ctk.CTkToplevel(window)
+    confirm_dialog.title("Confirm Delete")
+    confirm_dialog.geometry("400x180")
+    confirm_dialog.grab_set()
+    
+    # Header with dark background
+    header_frame = ctk.CTkFrame(confirm_dialog, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="Delete All Usage Counts",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content
+    content_frame = ctk.CTkFrame(confirm_dialog)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    message_label = ctk.CTkLabel(
+        content_frame,
+        text="Are you sure you want to delete ALL macro usage counts?\n\nThis action cannot be undone.",
+        font=("Segoe UI", 12),
+        wraplength=350
+    )
+    message_label.pack(pady=10)
+    
+    # Buttons with app-matching colors
+    btn_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(10, 0))
+    
+    def confirm_delete():
+        global macro_usage_counts
+        # Clear all counts
+        macro_usage_counts.clear()
+        # Save the empty counts
+        save_usage_counts()
+        # Refresh the display
+        if update_list_func:
+            update_list_func()
+        # Close dialog
+        confirm_dialog.destroy()
+        
+        # Show success message
+        success_popup = ctk.CTkToplevel(window)
+        success_popup.title("Success")
+        success_popup.geometry("300x100")
+        success_popup.attributes('-topmost', True)
+        success_popup.grab_set()
+        
+        success_label = ctk.CTkLabel(success_popup, text="All macro usage counts have been deleted.")
+        success_label.pack(pady=20)
+        
+        # Auto-close after 2 seconds
+        success_popup.after(2000, success_popup.destroy)
+    
+    def cancel():
+        confirm_dialog.destroy()
+    
+    # No button (red)
+    no_btn = ctk.CTkButton(
+        btn_frame,
+        text="No",
+        command=cancel,
+        fg_color="#B22222",  # Red color
+        hover_color="#8B0000"  # Darker red on hover
+    )
+    no_btn.pack(side="left", padx=(0, 10), expand=True, fill="x")
+    
+    # Yes button (blue - default CTk color)
+    yes_btn = ctk.CTkButton(
+        btn_frame,
+        text="Yes, Delete All",
+        command=confirm_delete
+    )
+    yes_btn.pack(side="left", expand=True, fill="x")
+    
+    # Center the dialog
+    confirm_dialog.update_idletasks()
+    x = window.winfo_rootx() + (window.winfo_width() // 2) - (confirm_dialog.winfo_width() // 2)
+    y = window.winfo_rooty() + (window.winfo_height() // 2) - (confirm_dialog.winfo_height() // 2)
+    confirm_dialog.geometry(f"+{x}+{y}")
 
 if __name__ == "__main__":
     if sys.platform.startswith('win32'):

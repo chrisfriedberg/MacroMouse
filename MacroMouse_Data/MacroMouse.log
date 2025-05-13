@@ -1,189 +1,492 @@
-[2025-05-12 10:19:34] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:19:34] Base path: C:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:19:34] Data path: C:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:19:34] Initial macro file: C:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:19:34] Initial log file: C:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:19:34] Default macro file not found: C:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:19:36] Created new empty macro file.
-[2025-05-12 10:19:36] Successfully loaded 1 macros from: C:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:19:36] Starting main application window.
-[2025-05-12 10:19:55] Close button clicked. Exiting application.
-[2025-05-12 10:19:55] Application window closed.
-[2025-05-12 10:19:55] ==================== MacroMouse Session End ====================
+[2025-05-12 11:56:37] ==================== MacroMouse Session Start ====================
+[2025-05-12 11:56:37] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 11:56:37] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 11:56:37] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 11:56:37] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 11:56:37] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 11:56:37] Starting main application window.
+[2025-05-12 11:59:19] ==================== MacroMouse Session Start ====================
+[2025-05-12 11:59:19] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 11:59:19] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 11:59:19] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 11:59:19] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 11:59:19] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 11:59:37] ==================== MacroMouse Session Start ====================
+[2025-05-12 11:59:37] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 11:59:37] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 11:59:37] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 11:59:37] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 11:59:37] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:00:10] ==================== MacroMouse Session Start ====================
+[2025-05-12 12:00:10] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:00:10] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 12:00:10] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 12:00:10] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 12:00:10] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:01:51] ==================== MacroMouse Session Start ====================
+[2025-05-12 12:01:51] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:01:51] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 12:01:51] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 12:01:51] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 12:01:51] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:03:44] Application window closed.
+[2025-05-12 12:03:44] ==================== MacroMouse Session End ====================
 
-[2025-05-12 10:36:01] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:36:01] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:36:01] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:36:01] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:36:01] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:36:01] Default macro file found. Loading...
-[2025-05-12 10:36:01] Successfully loaded 1 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:36:01] Starting main application window.
-[2025-05-12 10:36:26] Saved 1 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:36:26] Edited macro 'Welcome!' (now 'Welcome!').
-[2025-05-12 10:36:40] Close button clicked. Exiting application.
-[2025-05-12 10:36:40] Application window closed.
-[2025-05-12 10:36:40] ==================== MacroMouse Session End ====================
+[2025-05-12 12:03:44] ==================== MacroMouse Session Start ====================
+[2025-05-12 12:03:44] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:03:44] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 12:03:44] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 12:03:44] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 12:03:44] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:05:10] Application window closed.
+[2025-05-12 12:05:10] ==================== MacroMouse Session End ====================
 
-[2025-05-12 10:38:11] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:38:11] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:38:11] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:38:11] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:38:11] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:38:11] Default macro file found. Loading...
-[2025-05-12 10:38:11] Successfully loaded 1 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:38:11] Starting main application window.
-[2025-05-12 10:38:22] Close button clicked. Exiting application.
-[2025-05-12 10:38:22] Application window closed.
-[2025-05-12 10:38:22] ==================== MacroMouse Session End ====================
+[2025-05-12 12:05:10] ==================== MacroMouse Session Start ====================
+[2025-05-12 12:05:10] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:05:10] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 12:05:10] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 12:05:10] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 12:05:10] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:05:17] Application window closed.
+[2025-05-12 12:05:17] ==================== MacroMouse Session End ====================
 
-[2025-05-12 10:38:50] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:38:50] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:38:50] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:38:50] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:38:50] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:38:50] Default macro file found. Loading...
-[2025-05-12 10:38:50] Successfully loaded 1 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:38:50] Starting main application window.
-[2025-05-12 10:39:07] Saved 1 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:39:07] Edited macro 'Welcome!' (now 'Welcome!').
-[2025-05-12 10:39:23] Saved 2 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:39:23] Added macro 'Testing two, please delete'.
-[2025-05-12 10:39:31] User initiated refresh from file.
-[2025-05-12 10:39:31] Successfully loaded 2 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:39:31] Refresh complete. Loaded 2 macros.
-[2025-05-12 10:39:40] Close button clicked. Exiting application.
-[2025-05-12 10:39:40] Application window closed.
-[2025-05-12 10:39:40] ==================== MacroMouse Session End ====================
+[2025-05-12 12:05:53] ==================== MacroMouse Session Start ====================
+[2025-05-12 12:05:53] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:05:53] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 12:05:53] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 12:05:53] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 12:05:53] Macro file not found or path not set during load: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:08:41] Saved 1 macros to: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:11:18] Application window closed.
+[2025-05-12 12:11:18] ==================== MacroMouse Session End ====================
 
-[2025-05-12 10:49:30] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:49:30] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:49:30] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:49:30] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:49:30] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:49:30] Default macro file found. Loading...
-[2025-05-12 10:49:30] Successfully loaded 2 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:49:30] Starting main application window.
-[2025-05-12 10:49:32] Close button clicked. Exiting application.
-[2025-05-12 10:49:32] Application window closed.
-[2025-05-12 10:49:32] ==================== MacroMouse Session End ====================
+[2025-05-12 12:11:25] ==================== MacroMouse Session Start ====================
+[2025-05-12 12:11:25] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:11:25] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 12:11:25] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 12:11:25] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 12:11:25] Successfully loaded 1 macros from: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:11:54] ==================== MacroMouse Session Start ====================
+[2025-05-12 12:11:54] Using macro file: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:11:54] Using log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-12 12:11:54] Using config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-12 12:11:54] Using macro data file: C:\Users\chris\MacroMouse_Data\macro_data.json
+[2025-05-12 12:11:54] Successfully loaded 1 macros from: C:\Users\chris\MacroMouse_Data\macros.txt
+[2025-05-12 12:48:02] Error loading macro data: not well-formed (invalid token): line 1, column 0
+[2025-05-12 12:48:02] Error loading macro data: not well-formed (invalid token): line 1, column 0
+[2025-05-12 12:51:03] Attempting to open macro data file: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-12 12:51:03] Successfully launched default editor for macro data file.
+[2025-05-12 12:51:25] Application window closed.
+[2025-05-12 12:51:25] ==================== MacroMouse Session End ====================
 
-[2025-05-12 10:51:13] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:51:13] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:51:13] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:51:13] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:51:13] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:51:13] Default macro file found. Loading...
-[2025-05-12 10:51:13] Successfully loaded 2 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:51:13] Starting main application window.
-[2025-05-12 10:51:34] Close button clicked. Exiting application.
-[2025-05-12 10:51:34] Application window closed.
-[2025-05-12 10:51:34] ==================== MacroMouse Session End ====================
+[2025-05-12 12:51:49] Changed application icon to: C:/Users/chris/Desktop/scripts/MacroMouse/MacroMouse.ico
+[2025-05-12 12:53:04] Application window closed.
+[2025-05-12 12:53:04] ==================== MacroMouse Session End ====================
 
-[2025-05-12 10:52:29] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:52:29] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:52:29] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:52:29] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:52:29] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:52:29] Default macro file found. Loading...
-[2025-05-12 10:52:29] Successfully loaded 2 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:52:29] Starting main application window.
-[2025-05-12 10:54:45] Close button clicked. Exiting application.
-[2025-05-12 10:54:45] Application window closed.
-[2025-05-12 10:54:45] ==================== MacroMouse Session End ====================
+[2025-05-12 12:57:27] Application window closed.
+[2025-05-12 12:57:27] ==================== MacroMouse Session End ====================
 
-[2025-05-12 10:54:50] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:54:50] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:54:50] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:54:50] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:54:50] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:54:50] Default macro file found. Loading...
-[2025-05-12 10:54:50] Successfully loaded 2 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:54:50] Starting main application window.
-[2025-05-12 10:57:59] ==================== MacroMouse Session Start ====================
-[2025-05-12 10:57:59] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 10:57:59] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 10:57:59] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:57:59] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 10:57:59] Default macro file found. Loading...
-[2025-05-12 10:57:59] Successfully loaded 2 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 10:57:59] Starting main application window.
-[2025-05-12 11:25:13] ==================== MacroMouse Session Start ====================
-[2025-05-12 11:25:13] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 11:25:13] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 11:25:13] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:25:13] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 11:25:13] Default macro file found. Loading...
-[2025-05-12 11:25:13] Successfully loaded 2 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:25:13] Starting main application window.
-[2025-05-12 11:27:49] Saved 3 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:28:00] User initiated refresh from file.
-[2025-05-12 11:28:00] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:28:00] Refresh complete. Loaded 3 macros.
-[2025-05-12 11:28:18] Copied macro 'Icon Files - PNGs' to clipboard.
-[2025-05-12 11:28:39] Saved 3 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:28:47] Application window closed.
-[2025-05-12 11:28:47] ==================== MacroMouse Session End ====================
+[2025-05-12 13:05:12] Application window closed.
+[2025-05-12 13:05:12] ==================== MacroMouse Session End ====================
 
-[2025-05-12 11:28:58] ==================== MacroMouse Session Start ====================
-[2025-05-12 11:28:58] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 11:28:58] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 11:28:58] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:28:58] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 11:28:58] Default macro file found. Loading...
-[2025-05-12 11:28:58] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:28:58] Starting main application window.
-[2025-05-12 11:32:01] Application window closed.
-[2025-05-12 11:32:01] ==================== MacroMouse Session End ====================
+[2025-05-12 13:05:20] Copied macro 'Macro Test - Byte' to clipboard.
+[2025-05-12 13:07:36] Copied macro 'Holy crapolla' to clipboard.
+[2025-05-12 13:13:26] Copied macro 'Holy crapolla' to clipboard.
+[2025-05-12 13:14:45] Application window closed.
+[2025-05-12 13:14:45] ==================== MacroMouse Session End ====================
 
-[2025-05-12 11:32:02] ==================== MacroMouse Session Start ====================
-[2025-05-12 11:32:02] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 11:32:02] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 11:32:02] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:32:02] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 11:32:02] Default macro file found. Loading...
-[2025-05-12 11:32:02] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:32:02] Starting main application window.
-[2025-05-12 11:33:15] ==================== MacroMouse Session Start ====================
-[2025-05-12 11:33:15] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 11:33:15] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 11:33:15] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:33:15] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 11:33:15] Default macro file found. Loading...
-[2025-05-12 11:33:15] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:33:15] Starting main application window.
-[2025-05-12 11:33:42] Saved 3 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:34:05] Application window closed.
-[2025-05-12 11:34:05] ==================== MacroMouse Session End ====================
+[2025-05-12 13:14:51] Copied macro 'Holy crapolla' to clipboard.
+[2025-05-12 13:14:55] Copied macro 'Macro Test - Byte' to clipboard.
+[2025-05-12 13:18:45] Application window closed.
+[2025-05-12 13:18:45] ==================== MacroMouse Session End ====================
 
-[2025-05-12 11:34:42] ==================== MacroMouse Session Start ====================
-[2025-05-12 11:34:42] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 11:34:42] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 11:34:42] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:34:42] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 11:34:42] Default macro file found. Loading...
-[2025-05-12 11:34:42] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:34:42] Starting main application window.
-[2025-05-12 11:35:07] Saved 3 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:36:04] Saved 3 macros to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:36:15] Changed application icon to: C:/Users/chris/Desktop/scripts/MacroMouse/MacroMouse.ico
-[2025-05-12 11:36:28] User initiated refresh from file.
-[2025-05-12 11:36:28] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:36:28] Refresh complete. Loaded 3 macros.
-[2025-05-12 11:36:33] User initiated refresh from file.
-[2025-05-12 11:36:33] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:36:33] Refresh complete. Loaded 3 macros.
-[2025-05-12 11:36:46] Copied macro 'Icon Files - PNGs' to clipboard.
-[2025-05-12 11:38:34] ==================== MacroMouse Session Start ====================
-[2025-05-12 11:38:34] Base path: c:\Users\chris\Desktop\scripts\MacroMouse
-[2025-05-12 11:38:34] Data path: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
-[2025-05-12 11:38:34] Initial macro file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:38:34] Initial log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
-[2025-05-12 11:38:34] Default macro file found. Loading...
-[2025-05-12 11:38:34] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
-[2025-05-12 11:38:34] Starting main application window.
-[2025-05-12 11:43:53] Application window closed.
-[2025-05-12 11:43:53] ==================== MacroMouse Session End ====================
+[2025-05-12 13:21:45] Application window closed.
+[2025-05-12 13:21:45] ==================== MacroMouse Session End ====================
 
-[2025-05-12 11:53:31] Created new macro data file with default category.
-[2025-05-12 11:53:31] Successfully loaded 3 macros from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.txt
+[2025-05-12 13:22:32] Application window closed.
+[2025-05-12 13:22:32] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:22:43] Application window closed.
+[2025-05-12 13:22:43] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:23:39] Copied macro 'Holy crapolla' to clipboard.
+[2025-05-12 13:23:44] Copied macro 'Macro Test - Byte' to clipboard.
+[2025-05-12 13:24:40] Added new category: Stone cold
+[2025-05-12 13:25:38] Application window closed.
+[2025-05-12 13:25:38] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:25:56] Added new category: Stone COld
+[2025-05-12 13:27:34] Application window closed.
+[2025-05-12 13:27:34] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:33:09] Application window closed.
+[2025-05-12 13:33:09] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:34:52] Application window closed.
+[2025-05-12 13:34:52] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:36:02] Application window closed.
+[2025-05-12 13:36:02] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:39:11] Application window closed.
+[2025-05-12 13:39:11] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:41:21] Application window closed.
+[2025-05-12 13:41:21] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:41:31] Application window closed.
+[2025-05-12 13:41:31] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:43:12] Application window closed.
+[2025-05-12 13:43:12] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:46:41] Application window closed.
+[2025-05-12 13:46:41] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:47:05] Application window closed.
+[2025-05-12 13:47:05] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:48:02] Application window closed.
+[2025-05-12 13:48:02] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:49:58] Application window closed.
+[2025-05-12 13:49:58] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:51:21] Application window closed.
+[2025-05-12 13:51:21] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:52:48] Application window closed.
+[2025-05-12 13:52:48] ==================== MacroMouse Session End ====================
+
+[2025-05-12 13:54:45] Application window closed.
+[2025-05-12 13:54:45] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:00:53] Application window closed.
+[2025-05-12 14:00:53] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:01:24] Application window closed.
+[2025-05-12 14:01:24] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:01:41] Application window closed.
+[2025-05-12 14:01:41] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:01:52] Application window closed.
+[2025-05-12 14:01:52] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:02:09] Application window closed.
+[2025-05-12 14:02:09] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:03:06] Application window closed.
+[2025-05-12 14:03:06] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:03:13] Application window closed.
+[2025-05-12 14:03:13] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:03:28] Application window closed.
+[2025-05-12 14:03:28] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:03:40] Application window closed.
+[2025-05-12 14:03:40] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:04:51] Application window closed.
+[2025-05-12 14:04:51] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:07:22] Copied macro 'Test 2' to clipboard.
+[2025-05-12 14:07:29] Application window closed.
+[2025-05-12 14:07:29] ==================== MacroMouse Session End ====================
+
+[2025-05-12 14:22:34] Deleted category 'Stone COld' and its macros.
+[2025-05-12 14:22:37] Deleted category 'Random Funny' and its macros.
+[2025-05-12 14:28:46] Copied macro '.png to ICO creation' to clipboard.
+[2025-05-12 14:30:47] Copied macro '.png to ICO creation' to clipboard.
+[2025-05-12 14:34:28] Copied macro '.png to ICO creation' to clipboard.
+[2025-05-12 19:06:28] Added new category: Testing
+[2025-05-12 19:07:07] Application window closed.
+[2025-05-12 19:07:07] ==================== MacroMouse Session End ====================
+
+[2025-05-13 00:44:07] Application window closed.
+[2025-05-13 00:44:07] ==================== MacroMouse Session End ====================
+
+[2025-05-13 00:49:48] Deleted category: CAT_B375258D
+[2025-05-13 00:50:17] Copied macro 'Remove-Item (PowerShell)' to clipboard.
+[2025-05-13 00:50:23] Application window closed.
+[2025-05-13 00:50:23] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:29:15] Application window closed.
+[2025-05-13 09:29:15] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:36:42] Application window closed.
+[2025-05-13 09:36:42] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:36:53] Opened folder containing macro data file: C:\Users\chris\MacroMouse_Data
+[2025-05-13 09:41:54] Application window closed.
+[2025-05-13 09:41:54] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:43:28] Error opening folder: Command '['explorer', '/select,', 'C:\\Users\\chris\\MacroMouse_Data\\macros.xml']' returned non-zero exit status 1.
+[2025-05-13 09:43:43] Created backup of data files at: C:/Users/chris/Downloads/documents/MacroMouse_Data_Backup_20250513_094331.zip
+[2025-05-13 09:45:44] Application window closed.
+[2025-05-13 09:45:44] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:46:18] Application window closed.
+[2025-05-13 09:46:18] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:47:30] Application window closed.
+[2025-05-13 09:47:30] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:47:48] Application window closed.
+[2025-05-13 09:47:48] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:48:03] Attempting to open macro data file: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:48:03] Successfully launched default editor for macro data file.
+[2025-05-13 09:49:49] Application window closed.
+[2025-05-13 09:49:49] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:50:17] Opened folder containing macro data file: C:\Users\chris\MacroMouse_Data
+[2025-05-13 09:50:27] Attempting to open macro data file: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:50:27] Successfully launched default editor for macro data file.
+[2025-05-13 09:51:15] Application window closed.
+[2025-05-13 09:51:15] ==================== MacroMouse Session End ====================
+
+[2025-05-13 09:52:12] ==================== MacroMouse Session Start ====================
+[2025-05-13 09:52:12] App data directory: C:\Users\chris\MacroMouse_Data
+[2025-05-13 09:52:12] Macro data file: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:12] Log file: C:\Users\chris\MacroMouse_Data\MacroMouse.log
+[2025-05-13 09:52:12] Config file: C:\Users\chris\MacroMouse_Data\config.json
+[2025-05-13 09:52:12] Attempting to load macro data from: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:12] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 09:52:12] Attempting to load macro data from: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:12] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 09:52:12] Attempting to load macro data from: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:12] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 09:52:12] Attempting to load macro data from: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:12] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 09:52:17] Attempting to load macro data from: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:17] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 09:52:20] Attempting to load macro data from: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:20] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 09:52:24] Attempting to open macro data file: C:\Users\chris\MacroMouse_Data\macros.xml
+[2025-05-13 09:52:24] Successfully launched default editor for macro data file.
+[2025-05-13 09:52:54] Opened folder containing macro data file: C:\Users\chris\MacroMouse_Data
+[2025-05-13 10:43:13] Restored data files from zip: C:/Users/chris/Downloads/documents/MacroMouse_Data_Backup_20250513_095338.zip to c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:43:16] Application window closed.
+[2025-05-13 10:43:16] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:43:18] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:43:18] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:43:18] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:43:18] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:43:18] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:43:18] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:43:18] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:43:18] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:43:18] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:43:19] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:43:19] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:43:19] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:43:19] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:43:56] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:43:56] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:43:58] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:43:58] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:46:09] Application window closed.
+[2025-05-13 10:46:09] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:46:11] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:46:11] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:46:11] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:46:11] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:46:11] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:46:11] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:46:11] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:46:11] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:46:11] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:46:11] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:46:11] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:46:11] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:46:11] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:46:18] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:46:18] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:46:23] Copied macro 'Remove-Item (PowerShell)' to clipboard.
+[2025-05-13 10:46:26] Copied macro 'Remove-Item (PowerShell)' to clipboard.
+[2025-05-13 10:46:28] Copied macro 'Remove-Item (PowerShell)' to clipboard.
+[2025-05-13 10:47:30] Application window closed.
+[2025-05-13 10:47:30] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:47:32] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:47:32] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:47:32] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:47:32] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:47:32] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:47:32] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:47:32] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:47:32] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:47:32] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:47:32] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:47:32] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:47:32] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:47:32] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:47:37] Copied macro 'Folder Contents (Show all)' to clipboard.
+[2025-05-13 10:47:44] Copied macro 'Folder Contents (Show all)' to clipboard.
+[2025-05-13 10:48:01] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:48:01] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:49:53] Application window closed.
+[2025-05-13 10:49:53] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:49:59] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:49:59] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:49:59] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:49:59] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:49:59] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:49:59] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:49:59] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:49:59] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:49:59] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:50:00] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:50:00] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:50:00] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:50:00] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:50:11] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:50:11] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:50:13] Copied macro 'Folder Contents (Show all)' to clipboard.
+[2025-05-13 10:50:16] Copied macro 'Folder Contents (Show all)' to clipboard.
+[2025-05-13 10:50:21] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:50:21] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:50:26] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:50:26] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:50:31] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 10:50:33] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 10:50:34] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 10:50:35] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 10:50:37] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 10:50:39] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 10:50:45] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:50:45] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:50:51] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:50:51] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:54:37] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:54:37] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:54:39] Application window closed.
+[2025-05-13 10:54:39] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:54:54] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:54:54] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:54:54] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:54:54] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:54:54] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:54:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:54:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:54:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:54:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:54:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:54:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:54:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:54:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:54:58] Copied macro 'Copy-Item (PowerShell)' to clipboard.
+[2025-05-13 10:55:00] Copied macro 'Add a folder to system PATH (requires restart of terminal)' to clipboard.
+[2025-05-13 10:55:01] Copied macro '.png to ICO creation' to clipboard.
+[2025-05-13 10:55:03] Copied macro 'Remove-Item (PowerShell)' to clipboard.
+[2025-05-13 10:55:06] Copied macro 'Folder Contents (Show all)' to clipboard.
+[2025-05-13 10:55:08] Copied macro 'Folder Contents (Show all)' to clipboard.
+[2025-05-13 10:55:10] Copied macro 'Folder Contents (Show all)' to clipboard.
+[2025-05-13 10:55:11] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:55:11] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:22] Application window closed.
+[2025-05-13 10:57:22] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:57:29] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:57:29] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:57:29] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:29] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:57:29] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:57:29] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:29] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:29] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:29] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:29] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:29] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:29] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:29] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:43] Application window closed.
+[2025-05-13 10:57:43] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:57:54] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:57:54] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:57:54] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:54] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:57:54] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:57:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:57:54] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:57:54] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:59:05] Application window closed.
+[2025-05-13 10:59:05] ==================== MacroMouse Session End ====================
+
+[2025-05-13 10:59:10] ==================== MacroMouse Session Start ====================
+[2025-05-13 10:59:10] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 10:59:10] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:59:10] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 10:59:10] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 10:59:10] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:59:10] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:59:10] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:59:10] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:59:10] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:59:10] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:59:10] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 10:59:10] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 10:59:43] Application window closed.
+[2025-05-13 10:59:43] ==================== MacroMouse Session End ====================
+
+[2025-05-13 11:00:31] ==================== MacroMouse Session Start ====================
+[2025-05-13 11:00:31] App data directory: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data
+[2025-05-13 11:00:31] Macro data file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:00:31] Log file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\MacroMouse.log
+[2025-05-13 11:00:31] Config file: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\config.json
+[2025-05-13 11:00:31] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:00:31] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:00:31] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:00:31] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:00:31] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:00:31] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:00:31] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:00:31] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:00:46] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:00:46] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:00] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:00] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:05] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:05] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:05] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:05] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:05] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:05] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:05] Created backup of macro data file at: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml.bak
+[2025-05-13 11:01:05] Successfully saved macro data to: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:05] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:05] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:05] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:05] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:08] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:08] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:20] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:20] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:23] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 11:01:25] Copied macro 'set (CMD) / $env:PATH (PowerShell)' to clipboard.
+[2025-05-13 11:01:29] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:29] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:32] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:32] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:38] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:38] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:42] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:42] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:46] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:46] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:01:51] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:01:51] Successfully loaded macro data with 3 categories and 6 macros
+[2025-05-13 11:02:24] Attempting to load macro data from: c:\Users\chris\Desktop\scripts\MacroMouse\MacroMouse_Data\macros.xml
+[2025-05-13 11:02:24] Successfully loaded macro data with 3 categories and 6 macros

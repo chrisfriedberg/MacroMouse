@@ -1,12 +1,27 @@
 {
     "version": "1.0",
     "categories": {
-        "CAT_DEFAULT": {
+        "CAT_C1637039": {
             "name": "Uncategorized",
-            "created": "2025-05-12T11:53:31.521935",
-            "modified": "2025-05-12T11:53:31.521935",
-            "description": "Default category for uncategorized macros"
+            "created": "2025-05-12T12:01:51.170103",
+            "modified": "2025-05-12T12:01:51.170103",
+            "description": ""
+        },
+        "CAT_35C3D43B": {
+            "name": "GPT-Byte",
+            "created": "2025-05-12T12:06:31.594493",
+            "modified": "2025-05-12T12:06:31.594493",
+            "description": ""
         }
     },
-    "macros": {}
+    "macros": {
+        "MACRO_5AFF5166": {
+            "name": "PNG Formatting for ICO Conversion",
+            "category_id": "CAT_35C3D43B",
+            "content": "Hey,\nWhen creating a PNG for me, please:\n1. Never allow the background to be the same color as the foreground as this prevents me from being able to use a transparency tool on the background. Most tools will accidentally remove all similar colors\n\n2. Never leave inside padding between the icon object and the edge of the square aka the images border.\n\n3. Never put small text on an icon.  If you want to put text it has to be at least 3/4 of the height of the Full PNG and be brought to the front for visibility.",
+            "created": "2025-05-12T12:08:41.988457",
+            "modified": "2025-05-12T12:08:41.988457",
+            "version": 1
+        }
+    }
 }

@@ -1,19 +1,10 @@
-# category:GPT-BYTE
-# Icon Files - PNGs
-When creating a PNG for a later ICO version:
+# category:GPT-Byte
+# PNG Formatting for ICO Conversion
+Hey,
+When creating a PNG for me, please:
+1. Never allow the background to be the same color as the foreground as this prevents me from being able to use a transparency tool on the background. Most tools will accidentally remove all similar colors
 
-1.  Do not make the back ground the same color as the foreground.  This will allow me to remove the BG using transparency tools. 
-If you leave it in, it will completely remove everything of or near that color.
+2. Never leave inside padding between the icon object and the edge of the square aka the images border.
 
-2.  Do not leave padding on the inside edges. Use the full square space to allow for a larger ico when it's converted to an ICO file.
-
-# category:Uncategorized
-# Testing two, please delete
-Testing two, please delete
-
-# Welcome!
-Add macros using the 'Add' button.
-Testing Edit!  -Chris
-
-This is much better
+3. Never put small text on an icon.  If you want to put text it has to be at least 3/4 of the height of the Full PNG and be brought to the front for visibility.
 
