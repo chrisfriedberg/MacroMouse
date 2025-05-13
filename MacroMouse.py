@@ -368,6 +368,49 @@ def get_categories():
     return ["All"] + names
 
 # --- FILE OPERATIONS ---
+def show_copied_popup(parent, macro_name):
+    popup = ctk.CTkToplevel(parent)
+    popup.title("Copied")
+    popup.geometry("320x180")
+    popup.resizable(False, False)
+    popup.attributes("-topmost", True)
+    popup.grab_set()
+    
+    # Apply header styling
+    header_frame = ctk.CTkFrame(popup, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="Copied to Clipboard",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content
+    content_frame = ctk.CTkFrame(popup)
+    content_frame.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    message = f"Macro '{macro_name}' copied to clipboard."
+    message_label = ctk.CTkLabel(
+        content_frame, 
+        text=message,
+        font=("Segoe UI", 12),
+        wraplength=280
+    )
+    message_label.pack(pady=(20, 15))
+    
+    ok_btn = ctk.CTkButton(content_frame, text="OK", command=popup.destroy, width=100)
+    ok_btn.pack(pady=(0, 15))
+    
+    # Center the popup over the parent
+    popup.update_idletasks()
+    x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (popup.winfo_width() // 2)
+    y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (popup.winfo_height() // 2)
+    popup.geometry(f"+{x}+{y}")
+
 def copy_macro(macro_key):
     """Copies the content of the specified macro to the clipboard."""
     if macro_key and macro_key in macros_dict:
@@ -1676,7 +1719,6 @@ def create_macro_window():
             # Add double-click event for copy
             def on_double_click(event, c=cat, n=name):
                 copy_macro((c, n))
-                show_copied_popup(window, n)
             macro_button.bind("<Double-Button-1>", on_double_click)
             macro_list_items.append(macro_button)
         if selected:
@@ -1712,49 +1754,6 @@ def create_macro_window():
         config = load_config()
         config['theme_mode'] = mode
         save_config(config)
-
-    def show_copied_popup(parent, macro_name):
-        popup = ctk.CTkToplevel(parent)
-        popup.title("Copied")
-        popup.geometry("320x180")
-        popup.resizable(False, False)
-        popup.attributes("-topmost", True)
-        popup.grab_set()
-        
-        # Apply header styling
-        header_frame = ctk.CTkFrame(popup, fg_color="#181C22", height=44, corner_radius=0)
-        header_frame.pack(fill="x", side="top")
-        
-        title_label = ctk.CTkLabel(
-            header_frame,
-            text="Copied to Clipboard",
-            font=("Segoe UI", 15, "bold"),
-            text_color="white",
-            anchor="w"
-        )
-        title_label.pack(side="left", padx=(15, 0), pady=6)
-        
-        # Content
-        content_frame = ctk.CTkFrame(popup)
-        content_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        message = f"Macro '{macro_name}' copied to clipboard."
-        message_label = ctk.CTkLabel(
-            content_frame, 
-            text=message,
-            font=("Segoe UI", 12),
-            wraplength=280
-        )
-        message_label.pack(pady=(20, 15))
-        
-        ok_btn = ctk.CTkButton(content_frame, text="OK", command=popup.destroy, width=100)
-        ok_btn.pack(pady=(0, 15))
-        
-        # Center the popup over the parent
-        popup.update_idletasks()
-        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (popup.winfo_width() // 2)
-        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (popup.winfo_height() // 2)
-        popup.geometry(f"+{x}+{y}")
 
     update_list()
     window.mainloop()
