@@ -99,13 +99,19 @@ def generate_unique_id(prefix="MACRO"):
 def load_macro_data():
     """Load the structured macro data from XML file."""
     global macro_data_file_path
+    
+    # Debug log
+    log_message(f"Attempting to load macro data from: {macro_data_file_path}")
+    
     if not macro_data_file_path or not os.path.exists(macro_data_file_path):
+        log_message(f"Macro data file does not exist at: {macro_data_file_path}")
         return {
             "version": "1.0",
             "categories": {},
             "macros": {},
             "category_order": []
         }
+        
     try:
         tree = ET.parse(macro_data_file_path)
         root = tree.getroot()
@@ -117,32 +123,40 @@ def load_macro_data():
             "category_order": []
         }
         
-        for cat_elem in root.find("categories").findall("category"):
-            cat_id = cat_elem.get("id")
-            data["categories"][cat_id] = {
-                "name": cat_elem.find("name").text,
-                "created": cat_elem.find("created").text,
-                "modified": cat_elem.find("modified").text,
-                "description": cat_elem.find("description").text if cat_elem.find("description") is not None else ""
-            }
+        # Load categories
+        categories_elem = root.find("categories")
+        if categories_elem is not None:
+            for cat_elem in categories_elem.findall("category"):
+                cat_id = cat_elem.get("id")
+                data["categories"][cat_id] = {
+                    "name": cat_elem.find("name").text,
+                    "created": cat_elem.find("created").text,
+                    "modified": cat_elem.find("modified").text,
+                    "description": cat_elem.find("description").text if cat_elem.find("description") is not None else ""
+                }
         
-        for macro_elem in root.find("macros").findall("macro"):
-            macro_id = macro_elem.get("id")
-            data["macros"][macro_id] = {
-                "name": macro_elem.find("name").text,
-                "category_id": macro_elem.find("category_id").text,
-                "content": macro_elem.find("content").text,
-                "created": macro_elem.find("created").text,
-                "modified": macro_elem.find("modified").text,
-                "version": int(macro_elem.find("version").text)
-            }
+        # Load macros
+        macros_elem = root.find("macros")
+        if macros_elem is not None:
+            for macro_elem in macros_elem.findall("macro"):
+                macro_id = macro_elem.get("id")
+                data["macros"][macro_id] = {
+                    "name": macro_elem.find("name").text,
+                    "category_id": macro_elem.find("category_id").text,
+                    "content": macro_elem.find("content").text,
+                    "created": macro_elem.find("created").text,
+                    "modified": macro_elem.find("modified").text,
+                    "version": int(macro_elem.find("version").text)
+                }
         
+        # Load category order
         order_elem = root.find("category_order")
         if order_elem is not None and order_elem.text:
             data["category_order"] = order_elem.text.split(",")
         else:
             data["category_order"] = list(data["categories"].keys())
         
+        log_message(f"Successfully loaded macro data with {len(data['categories'])} categories and {len(data['macros'])} macros")
         return data
     except Exception as e:
         log_message(f"Error loading macro data: {e}")
@@ -156,8 +170,21 @@ def load_macro_data():
 def save_macro_data(data, category_order=None):
     """Save the structured macro data to XML file."""
     global macro_data_file_path
+    
     if not macro_data_file_path:
+        log_message("Cannot save macro data: File path is not set")
         return False
+        
+    # Ensure directory exists
+    data_dir = os.path.dirname(macro_data_file_path)
+    if not os.path.exists(data_dir):
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            log_message(f"Created data directory: {data_dir}")
+        except Exception as e:
+            log_message(f"Error creating data directory: {e}")
+            return False
+            
     try:
         root = ET.Element("macro_data")
         
@@ -198,7 +225,16 @@ def save_macro_data(data, category_order=None):
             version_elem.text = str(macro_data["version"])
         
         tree = ET.ElementTree(root)
+        
+        # Create a backup before saving
+        if os.path.exists(macro_data_file_path):
+            backup_path = f"{macro_data_file_path}.bak"
+            import shutil
+            shutil.copy2(macro_data_file_path, backup_path)
+            log_message(f"Created backup of macro data file at: {backup_path}")
+            
         tree.write(macro_data_file_path, encoding="utf-8", xml_declaration=True)
+        log_message(f"Successfully saved macro data to: {macro_data_file_path}")
         return True
     except Exception as e:
         log_message(f"Error saving macro data: {e}")
@@ -304,7 +340,9 @@ def copy_macro(macro_key):
     """Copies the content of the specified macro to the clipboard."""
     if macro_key and macro_key in macros_dict:
         try:
-            pyperclip.copy(macros_dict[macro_key])
+            content = macros_dict[macro_key]
+            # Ensure we're copying plain text
+            pyperclip.copy(content)
             log_message(f"Copied macro '{macro_key[1]}' to clipboard.")
             print(f"Copied to clipboard: {macro_key[1]}")
         except Exception as e:
@@ -317,14 +355,63 @@ def copy_macro(macro_key):
 def open_macro_file():
     """Opens the current macro data file using the OS default text editor."""
     global macro_data_file_path
+    
     if not macro_data_file_path:
         messagebox.showerror("Error", "Cannot open: Macro data file path is not set.")
         return
-    if not os.path.exists(macro_data_file_path):
-        messagebox.showerror("Error", f"Cannot open: Macro data file not found at:\n{macro_data_file_path}")
-        return
-
+        
     log_message(f"Attempting to open macro data file: {macro_data_file_path}")
+    
+    # Check if file exists
+    if not os.path.exists(macro_data_file_path):
+        # Ask if user wants to create it
+        create_new = messagebox.askyesno(
+            "File Not Found", 
+            f"The XML data file does not exist at:\n{macro_data_file_path}\n\nDo you want to create a new empty data file?"
+        )
+        
+        if not create_new:
+            return
+            
+        # Try to create empty data file
+        try:
+            data_dir = os.path.dirname(macro_data_file_path)
+            if not os.path.exists(data_dir):
+                os.makedirs(data_dir, exist_ok=True)
+                
+            # Create basic XML structure
+            root = ET.Element("macro_data")
+            version = ET.SubElement(root, "version")
+            version.text = "1.0"
+            categories = ET.SubElement(root, "categories")
+            
+            # Add Uncategorized category
+            cat_id = generate_unique_id("CAT")
+            cat = ET.SubElement(categories, "category", id=cat_id)
+            name = ET.SubElement(cat, "name")
+            name.text = "Uncategorized"
+            created = ET.SubElement(cat, "created")
+            created.text = datetime.now().isoformat()
+            modified = ET.SubElement(cat, "modified")
+            modified.text = datetime.now().isoformat()
+            desc = ET.SubElement(cat, "description")
+            desc.text = ""
+            
+            macros = ET.SubElement(root, "macros")
+            cat_order = ET.SubElement(root, "category_order")
+            cat_order.text = cat_id
+            
+            tree = ET.ElementTree(root)
+            tree.write(macro_data_file_path, encoding="utf-8", xml_declaration=True)
+            
+            log_message(f"Created new empty macro data file at: {macro_data_file_path}")
+            messagebox.showinfo("Success", f"Created new XML data file at:\n{macro_data_file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Cannot create macro data file at {macro_data_file_path}:\n{e}")
+            log_message(f"Error creating macro data file: {e}")
+            return
+
+    # Try to open the file
     try:
         if sys.platform.startswith('win32'):
             os.startfile(macro_data_file_path)
@@ -336,6 +423,247 @@ def open_macro_file():
     except Exception as e:
         messagebox.showerror("Error Opening File", f"An error occurred while trying to open the macro data file:\n{e}")
         log_message(f"Error opening macro data file: {e}")
+
+def open_macro_file_location():
+    """Opens the folder containing the macro data file."""
+    global macro_data_file_path
+    if not macro_data_file_path:
+        messagebox.showerror("Error", "Cannot open: Macro data file path is not set.")
+        return
+    if not os.path.exists(macro_data_file_path):
+        messagebox.showerror("Error", f"Cannot open: Macro data file not found at:\n{macro_data_file_path}")
+        return
+
+    try:
+        folder_path = os.path.dirname(macro_data_file_path)
+        if sys.platform.startswith('win32'):
+            # Just open the folder - much simpler and more reliable
+            os.startfile(folder_path)
+        elif sys.platform.startswith('darwin'):
+            subprocess.run(['open', folder_path], check=True)
+        else:
+            subprocess.run(['xdg-open', folder_path], check=True)
+        log_message(f"Opened folder containing macro data file: {folder_path}")
+    except Exception as e:
+        messagebox.showerror("Error Opening Folder", f"An error occurred while trying to open the folder:\n{e}")
+        log_message(f"Error opening folder: {e}")
+
+def backup_data_files_folder():
+    """Creates a zip backup of the entire data files folder."""
+    global macro_data_file_path
+    if not macro_data_file_path:
+        messagebox.showerror("Error", "Cannot backup: Macro data file path is not set.")
+        return
+
+    try:
+        # Get the data directory path
+        data_dir = os.path.dirname(macro_data_file_path)
+        if not os.path.exists(data_dir):
+            messagebox.showerror("Error", f"Cannot backup: Data directory not found at:\n{data_dir}")
+            return
+
+        # Get the default backup filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_filename = f"MacroMouse_Data_Backup_{timestamp}.zip"
+        
+        # Get the default backup directory (project directory)
+        default_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Ask user for backup location
+        backup_path = filedialog.asksaveasfilename(
+            title="Save Backup As",
+            initialdir=default_dir,
+            initialfile=default_filename,
+            defaultextension=".zip",
+            filetypes=[("ZIP files", "*.zip"), ("All files", "*.*")]
+        )
+        
+        if not backup_path:  # User cancelled
+            return
+            
+        # Create zip backup
+        import zipfile
+        with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(data_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, data_dir)
+                    zipf.write(file_path, arcname)
+
+        log_message(f"Created backup of data files at: {backup_path}")
+        
+        # Show simple message with backup location
+        backup_dir = os.path.dirname(backup_path)
+        msg = f"Data Files backed up to:\n{backup_path}"
+        messagebox.showinfo("Backup Complete", msg)
+        
+        # Open the backup directory
+        try:
+            if sys.platform.startswith('win32'):
+                os.startfile(backup_dir)
+            elif sys.platform.startswith('darwin'):
+                subprocess.run(['open', backup_dir], check=True)
+            else:
+                subprocess.run(['xdg-open', backup_dir], check=True)
+        except Exception as e:
+            log_message(f"Error opening backup location: {e}")
+            
+    except Exception as e:
+        messagebox.showerror("Backup Error", f"An error occurred while creating the backup:\n{e}")
+        log_message(f"Error creating backup: {e}")
+
+def restore_data_file():
+    """Allows users to restore data files from backups."""
+    global macro_data_file_path, config_file_path
+    
+    # Create the restore dialog
+    restore_window = ctk.CTkToplevel()
+    restore_window.title("Restore Data Files")
+    restore_window.geometry("500x250")
+    restore_window.grab_set()
+    
+    # Apply same theme as main window
+    ctk.set_appearance_mode(ctk.get_appearance_mode())
+    
+    # Header
+    header_frame = ctk.CTkFrame(restore_window, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="Restore Data Files",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    close_btn = ctk.CTkButton(
+        header_frame, text="✕", width=32, fg_color="#23272E", text_color="white",
+        hover_color="#B22222", command=restore_window.destroy
+    )
+    close_btn.pack(side="right", padx=10, pady=6)
+    
+    # Content
+    content_frame = ctk.CTkFrame(restore_window)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    # Prompt text
+    prompt_label = ctk.CTkLabel(
+        content_frame,
+        text="Select the type of restore you want to perform:",
+        font=("Segoe UI", 12),
+        anchor="w"
+    )
+    prompt_label.pack(pady=(0, 15), anchor="w")
+    
+    # Restore options
+    xml_var = tk.IntVar(value=1)
+    xml_radio = ctk.CTkRadioButton(
+        content_frame,
+        text="Restore Single XML File (only macros.xml)",
+        variable=xml_var,
+        value=1
+    )
+    xml_radio.pack(pady=5, anchor="w")
+    
+    zip_radio = ctk.CTkRadioButton(
+        content_frame,
+        text="Restore from Zip Backup (all data files)",
+        variable=xml_var,
+        value=2
+    )
+    zip_radio.pack(pady=5, anchor="w")
+    
+    # Buttons
+    btn_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(20, 0))
+    
+    def handle_restore():
+        restore_type = xml_var.get()
+        start_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        if restore_type == 1:
+            # Single XML file
+            file_path = filedialog.askopenfilename(
+                title="Select XML File to Restore",
+                initialdir=start_dir,
+                filetypes=[("XML files", "*.xml"), ("All files", "*.*")]
+            )
+            
+            if not file_path:
+                return
+                
+            target_path = macro_data_file_path
+            if os.path.exists(target_path):
+                # Ask for confirmation before overwriting
+                if not styled_askyesno("Confirm Overwrite", 
+                    f"This will overwrite your existing data file at:\n{target_path}\n\nAre you sure you want to continue?",
+                    parent=restore_window):
+                    return
+            
+            try:
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                import shutil
+                shutil.copy2(file_path, target_path)
+                log_message(f"Restored XML file from {file_path} to {target_path}")
+                styled_showinfo("Restore Complete", f"Successfully restored data file from:\n{file_path}", parent=restore_window)
+                restore_window.destroy()
+            except Exception as e:
+                styled_showerror("Restore Error", f"An error occurred during restore:\n{e}", parent=restore_window)
+                log_message(f"Restore error: {e}")
+        
+        else:
+            # Zip backup
+            zip_path = filedialog.askopenfilename(
+                title="Select Zip Backup to Restore",
+                initialdir=start_dir,
+                filetypes=[("ZIP files", "*.zip"), ("All files", "*.*")]
+            )
+            
+            if not zip_path:
+                return
+                
+            target_dir = os.path.dirname(macro_data_file_path)
+            
+            # Check if any files will be overwritten
+            if os.path.exists(target_dir) and any(os.path.exists(os.path.join(target_dir, f)) for f in ["macros.xml", "config.json"]):
+                if not styled_askyesno("Confirm Overwrite", 
+                    f"This will overwrite existing data files in:\n{target_dir}\n\nAre you sure you want to continue?",
+                    parent=restore_window):
+                    return
+            
+            try:
+                # Ensure directory exists
+                os.makedirs(target_dir, exist_ok=True)
+                
+                # Extract zip
+                import zipfile
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(target_dir)
+                
+                log_message(f"Restored data files from zip: {zip_path} to {target_dir}")
+                styled_showinfo("Restore Complete", f"Successfully restored data files from:\n{zip_path}", parent=restore_window)
+                restore_window.destroy()
+            except Exception as e:
+                styled_showerror("Restore Error", f"An error occurred during restore:\n{e}", parent=restore_window)
+                log_message(f"Restore error: {e}")
+    
+    restore_btn = ctk.CTkButton(
+        btn_frame,
+        text="Select File and Restore",
+        command=handle_restore
+    )
+    restore_btn.pack(side="left", padx=(0, 10))
+    
+    cancel_btn = ctk.CTkButton(
+        btn_frame,
+        text="Cancel",
+        fg_color="gray",
+        command=restore_window.destroy
+    )
+    cancel_btn.pack(side="left")
 
 # --- POPUP WINDOWS ---
 def add_macro_popup(update_list_func, category_dropdown):
@@ -361,7 +689,9 @@ def add_macro_popup(update_list_func, category_dropdown):
     category_names = [name for _, name in categories]
     category_names.append("+ New Category")
     
-    cat_var = tk.StringVar(value=category_names[0] if category_names else "Uncategorized")
+    # Use the currently selected category if it's not "All"
+    current_category = selected_category if selected_category != "All" else category_names[0]
+    cat_var = tk.StringVar(value=current_category)
     cat_dropdown = ctk.CTkOptionMenu(popup, values=category_names, variable=cat_var)
     cat_dropdown.pack(padx=10, fill="x")
 
@@ -467,6 +797,8 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
     category_names = [name for _, name in categories]
     category_names.append("+ New Category")
     
+    # Use the currently selected category if it's not "All" and matches the macro's category
+    current_category = selected_category if selected_category != "All" and selected_category == current_category else current_category
     cat_var = tk.StringVar(value=current_category)
     cat_dropdown = ctk.CTkOptionMenu(popup, values=category_names, variable=cat_var)
     cat_dropdown.pack(padx=10, fill="x")
@@ -622,7 +954,7 @@ def create_category_window(update_list_func, category_dropdown):
                 btn_style = {"font": ("Segoe UI", 11, "bold"), "text_color": "white"}
                 
                 # Edit button
-                edit_btn = ctk.CTkButton(btn_frame, text="Edit", width=50, **btn_style, command=lambda c=cat_id: edit_category_popup(c))
+                edit_btn = ctk.CTkButton(btn_frame, text="Edit", width=50, **btn_style, command=lambda c=cat_id: edit_category_popup(c, update_category_list, update_list_func, category_dropdown))
                 edit_btn.pack(side="left", padx=(0, 6))
                 # Delete button
                 delete_btn = ctk.CTkButton(btn_frame, text="Delete", width=60, **btn_style, command=lambda c=cat_id: delete_category(c))
@@ -771,39 +1103,56 @@ def create_category_window(update_list_func, category_dropdown):
     # Initial update of the category list
     update_category_list()
 
-def edit_category_popup(cat_id):
-    # Simple popup to edit category name/description
-    cat_data = categories[cat_id]
+def edit_category_popup(cat_id, update_category_list=None, update_list_func=None, category_dropdown=None):
+    """Edit category popup that can be called from various contexts."""
+    # Load fresh data
+    data = load_macro_data()
+    cat_data = data["categories"][cat_id]
+    
     popup = ctk.CTkToplevel()
     popup.title("Edit Category")
     popup.geometry("350x180")
     popup.grab_set()
+    
     name_label = ctk.CTkLabel(popup, text="Category Name:")
     name_label.pack(pady=(10, 0))
     name_entry = ctk.CTkEntry(popup)
     name_entry.insert(0, cat_data["name"])
     name_entry.pack(pady=5, padx=10, fill="x")
+    
     desc_label = ctk.CTkLabel(popup, text="Description (optional):")
     desc_label.pack(pady=(10, 0))
     desc_entry = ctk.CTkEntry(popup)
     desc_entry.insert(0, cat_data.get("description", ""))
     desc_entry.pack(pady=5, padx=10, fill="x")
+    
     def save_edit():
         new_name = name_entry.get().strip()
         new_desc = desc_entry.get().strip()
+        
         if not new_name:
             messagebox.showerror("Error", "Category name cannot be empty.")
             return
+            
+        # Update category data
         cat_data["name"] = new_name
         cat_data["description"] = new_desc
         cat_data["modified"] = datetime.now().isoformat()
-        save_macro_data(data, category_order)
-        update_category_list()
+        
+        # Save changes to file
+        save_macro_data(data)
+        
+        # Update UI elements if provided
+        if update_category_list:
+            update_category_list()
         if category_dropdown:
             category_dropdown.configure(values=get_categories())
             category_dropdown.set("All")
-        update_list_func()
+        if update_list_func:
+            update_list_func()
+            
         popup.destroy()
+        
     save_btn = ctk.CTkButton(popup, text="Save", command=save_edit)
     save_btn.pack(pady=10)
 
@@ -839,7 +1188,17 @@ def create_macro_window():
     
     file_menu = tk.Menu(menubar, tearoff=0)
     menubar.add_cascade(label="File", menu=file_menu)
-    file_menu.add_command(label="Open Data File in Editor", command=open_macro_file)
+    
+    # Data File submenu
+    data_file_menu = tk.Menu(file_menu, tearoff=0)
+    file_menu.add_cascade(label="Data File", menu=data_file_menu)
+    data_file_menu.add_command(label="Show Macro XML Datafile", command=open_macro_file)
+    data_file_menu.add_command(label="Open Data File Location", command=open_macro_file_location)
+    data_file_menu.add_command(label="Back Up Data Files Folder", command=backup_data_files_folder)
+    data_file_menu.add_command(label="Restore Data File", command=restore_data_file)
+    data_file_menu.add_separator()
+    data_file_menu.add_command(label="Show File Paths (Debug)", command=show_file_paths)
+    
     file_menu.add_separator()
     file_menu.add_command(label="Change App Icon", command=lambda: change_app_icon(window))
     
@@ -1023,12 +1382,40 @@ def create_macro_window():
     def show_copied_popup(parent, macro_name):
         popup = ctk.CTkToplevel(parent)
         popup.title("Copied")
-        popup.geometry("320x90")
+        popup.geometry("320x180")
         popup.resizable(False, False)
         popup.attributes("-topmost", True)
         popup.grab_set()
-        ctk.CTkLabel(popup, text=f"Macro '{macro_name}' copied to clipboard.").pack(pady=18)
-        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=80).pack(pady=(0, 10))
+        
+        # Apply header styling
+        header_frame = ctk.CTkFrame(popup, fg_color="#181C22", height=44, corner_radius=0)
+        header_frame.pack(fill="x", side="top")
+        
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="Copied to Clipboard",
+            font=("Segoe UI", 15, "bold"),
+            text_color="white",
+            anchor="w"
+        )
+        title_label.pack(side="left", padx=(15, 0), pady=6)
+        
+        # Content
+        content_frame = ctk.CTkFrame(popup)
+        content_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        message = f"Macro '{macro_name}' copied to clipboard."
+        message_label = ctk.CTkLabel(
+            content_frame, 
+            text=message,
+            font=("Segoe UI", 12),
+            wraplength=280
+        )
+        message_label.pack(pady=(20, 15))
+        
+        ok_btn = ctk.CTkButton(content_frame, text="OK", command=popup.destroy, width=100)
+        ok_btn.pack(pady=(0, 15))
+        
         # Center the popup over the parent
         popup.update_idletasks()
         x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (popup.winfo_width() // 2)
@@ -1044,20 +1431,229 @@ def create_macro_window():
 def main():
     """Main entry point for the application."""
     global macro_data_file_path, log_file_path, config_file_path
-    app_data_dir = os.path.join(os.path.expanduser("~"), "MacroMouse_Data")
+    
+    # Store data in a subdirectory of the script's location
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    app_data_dir = os.path.join(script_dir, "MacroMouse_Data")
     os.makedirs(app_data_dir, exist_ok=True)
+    
+    # Set file paths - these are the correct locations
     macro_data_file_path = os.path.join(app_data_dir, "macros.xml")
     log_file_path = os.path.join(app_data_dir, "MacroMouse.log")
     config_file_path = os.path.join(app_data_dir, "config.json")
     
+    # Log startup information
+    log_message("="*20 + " MacroMouse Session Start " + "="*20)
+    log_message(f"App data directory: {app_data_dir}")
+    log_message(f"Macro data file: {macro_data_file_path}")
+    log_message(f"Log file: {log_file_path}")
+    log_message(f"Config file: {config_file_path}")
+    
+    # Initialize data if needed
     data = load_macro_data()
     if not any(cat["name"] == "Uncategorized" for cat in data["categories"].values()):
         create_new_category("Uncategorized")
+    
+    # Set theme from config
     config = load_config()
     theme_mode = config.get('theme_mode', 'Dark')
     ctk.set_appearance_mode(theme_mode)
     ctk.set_default_color_theme("dark-blue")
+    
+    # Start the main window
     create_macro_window()
+
+# Add a debugging function to check file paths
+def show_file_paths():
+    """Display current file paths in a message box for debugging."""
+    global macro_data_file_path, log_file_path, config_file_path
+    
+    # Create styled dialog
+    paths_dialog = ctk.CTkToplevel()
+    paths_dialog.title("File Paths")
+    paths_dialog.geometry("500x600")  # Doubled the height from 300 to 600
+    paths_dialog.grab_set()
+    paths_dialog.resizable(True, True)  # Allow both width and height resizing
+    
+    # Header with consistent styling
+    header_frame = ctk.CTkFrame(paths_dialog, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="File Paths",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content frame
+    content_frame = ctk.CTkFrame(paths_dialog)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    # Paths information with better formatting
+    paths_info = [
+        ("Macro Data File:", macro_data_file_path, os.path.exists(macro_data_file_path)),
+        ("Log File:", log_file_path, os.path.exists(log_file_path)),
+        ("Config File:", config_file_path, os.path.exists(config_file_path)),
+        ("Current Directory:", os.getcwd(), True)
+    ]
+    
+    for i, (label_text, path, exists) in enumerate(paths_info):
+        # Label container
+        entry_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        entry_frame.pack(fill="x", pady=(10 if i > 0 else 0))
+        
+        # Path label
+        label = ctk.CTkLabel(
+            entry_frame,
+            text=label_text,
+            font=("Segoe UI", 12, "bold"),
+            anchor="w"
+        )
+        label.pack(anchor="w")
+        
+        # Path value with status indicator
+        status_color = "#4CAF50" if exists else "#F44336"  # Green if exists, red if not
+        path_text = ctk.CTkTextbox(entry_frame, height=40, wrap="word", activate_scrollbars=True)  # Increased height and enabled scrollbars
+        path_text.insert("1.0", path)
+        path_text.configure(state="disabled")
+        path_text.pack(fill="x", pady=(2, 0))
+        
+        # Exists indicator
+        status_text = f"Exists: {'Yes' if exists else 'No'}"
+        status_label = ctk.CTkLabel(
+            entry_frame,
+            text=status_text,
+            font=("Segoe UI", 10),
+            text_color=status_color,
+            anchor="w"
+        )
+        status_label.pack(anchor="w")
+    
+    # OK button at bottom
+    btn_frame = ctk.CTkFrame(paths_dialog, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(0, 15))
+    
+    ok_btn = ctk.CTkButton(
+        btn_frame,
+        text="OK",
+        width=100,
+        command=paths_dialog.destroy
+    )
+    ok_btn.pack(side="right", padx=15)
+    
+    # Center the dialog on screen
+    paths_dialog.update_idletasks()
+    width = paths_dialog.winfo_width()
+    height = paths_dialog.winfo_height()
+    x = (paths_dialog.winfo_screenwidth() // 2) - (width // 2)
+    y = (paths_dialog.winfo_screenheight() // 2) - (height // 2)
+    paths_dialog.geometry(f"{width}x{height}+{x}+{y}")
+    
+    # Add a note about resizing
+    note_label = ctk.CTkLabel(
+        btn_frame,
+        text="Note: This window can be resized by dragging its edges",
+        font=("Segoe UI", 10),
+        text_color="gray",
+        anchor="w"
+    )
+    note_label.pack(side="left", padx=15)
+    
+    paths_dialog.wait_window()
+
+# Apply consistent styling to all message boxes
+def create_styled_messagebox(title, message, parent=None, icon=None, buttons=None):
+    """Create a styled message box that matches the app theme."""
+    # Get current theme
+    theme_mode = ctk.get_appearance_mode()
+    
+    # Create custom dialog
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title(title)
+    dialog.geometry("400x200")
+    dialog.grab_set()
+    dialog.resizable(False, False)
+    
+    # Header
+    header_frame = ctk.CTkFrame(dialog, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text=title,
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Message
+    content_frame = ctk.CTkFrame(dialog)
+    content_frame.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    message_label = ctk.CTkLabel(
+        content_frame,
+        text=message,
+        font=("Segoe UI", 12),
+        wraplength=350,
+        justify="left"
+    )
+    message_label.pack(pady=15, padx=10)
+    
+    # Buttons
+    btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(0, 10), padx=10)
+    
+    result = [None]  # Use list to store result (mutable)
+    
+    def on_button(value):
+        result[0] = value
+        dialog.destroy()
+    
+    # Default OK button
+    if not buttons:
+        ok_btn = ctk.CTkButton(
+            btn_frame,
+            text="OK",
+            command=lambda: on_button(True)
+        )
+        ok_btn.pack(side="right", padx=5)
+    else:
+        # Custom buttons
+        for btn_text, btn_value in buttons:
+            btn = ctk.CTkButton(
+                btn_frame,
+                text=btn_text,
+                command=lambda val=btn_value: on_button(val),
+                fg_color="gray" if btn_text.lower() in ["cancel", "no"] else None
+            )
+            btn.pack(side="right", padx=5)
+    
+    # Center dialog
+    dialog.update_idletasks()
+    width = dialog.winfo_width()
+    height = dialog.winfo_height()
+    x = (dialog.winfo_screenwidth() // 2) - (width // 2)
+    y = (dialog.winfo_screenheight() // 2) - (height // 2)
+    dialog.geometry(f"{width}x{height}+{x}+{y}")
+    
+    # Wait for user interaction
+    dialog.wait_window()
+    return result[0]
+
+# Create a styled version of messagebox functions
+def styled_showinfo(title, message, parent=None):
+    return create_styled_messagebox(title, message, parent)
+
+def styled_askyesno(title, message, parent=None):
+    return create_styled_messagebox(title, message, parent, 
+                           buttons=[("Yes", True), ("No", False)])
+
+def styled_showerror(title, message, parent=None):
+    return create_styled_messagebox(title, message, parent)
 
 if __name__ == "__main__":
     if sys.platform.startswith('win32'):
