@@ -1,4 +1,5 @@
 {
     "icon_path": "C:/Users/chris/Desktop/scripts/MacroMouse/MacroMouse.ico",
-    "theme_mode": "Dark"
+    "theme_mode": "Dark",
+    "reference_file": "C:\\Users\\chris\\Desktop\\scripts\\MacroMouse\\MacroMouse_Data\\placeholder_reference.txt"
 }

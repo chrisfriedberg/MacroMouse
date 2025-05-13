@@ -1,0 +1,39 @@
+# MacroMouse Placeholder Reference
+
+This file serves as a reference for placeholders used in your macros.
+
+## Common Placeholders
+
+{{customer_name}} - Full name of the customer
+{{first_name}} - Customer's first name
+{{last_name}} - Customer's last name
+{{order_number}} - Order or ticket reference number
+{{date}} - Current date (you can use any format)
+{{time}} - Current time
+{{company}} - Your company name
+{{product}} - Product name or service
+{{agent_name}} - Your name or support representative name
+{{contact_email}} - Contact email address
+{{contact_phone}} - Contact phone number
+
+## Email Templates Example
+
+"Hello {{customer_name}},
+
+Thank you for contacting {{company}} about your recent {{product}} purchase (#{{order_number}}). 
+
+Your request has been received and is being processed by {{agent_name}}. We'll get back to you within 24 hours.
+
+Best regards,
+{{agent_name}}
+{{company}}
+{{contact_email}}
+{{contact_phone}}"
+
+## Notes
+
+- You can add your own placeholders as needed
+- The same placeholder used multiple times will be filled with the same value
+- Placeholder names are case-sensitive
+- Add your commonly used placeholder patterns below:
+

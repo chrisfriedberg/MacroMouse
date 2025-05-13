@@ -9,6 +9,8 @@ import json
 from datetime import datetime
 import uuid
 import xml.etree.ElementTree as ET
+import re
+import tkinter.simpledialog as sd
 
 # --- GLOBALS ---
 log_file_path = None
@@ -17,6 +19,7 @@ selected_macro_name = None
 macro_list_items = []
 selected_category = "All"
 macro_data_file_path = None
+reference_file_path = None  # Path to user's reference file
 macros_dict = {}  # In-memory macro storage
 macro_usage_counts = {}  # Dictionary to track macro usage counts
 window = None  # Global reference to the main window
@@ -370,29 +373,225 @@ def copy_macro(macro_key):
     if macro_key and macro_key in macros_dict:
         try:
             content = macros_dict[macro_key]
+            
+            # Check for {{tag}} placeholders and prompt for input
+            pattern = r'\{\{(.*?)\}\}'
+            placeholders = set(re.findall(pattern, content))
+            
+            # If there are placeholders, show the dialog
+            if placeholders:
+                # Create a custom dialog for all placeholders
+                inputs = show_placeholder_dialog(macro_key[1], list(placeholders))
+                
+                # If dialog was canceled, return immediately without copying
+                if inputs is None:
+                    return
+                    
+                # Replace all placeholders with user input
+                for ph, value in inputs.items():
+                    if value:  # Only replace if a value was provided
+                        content = content.replace(f"{{{{{ph}}}}}", value)
+                
+                # Check for unresolved tags (optional)
+                unresolved_tags = re.findall(pattern, content)
+                if unresolved_tags:
+                    continue_copy = show_unresolved_tags_dialog(macro_key[1], unresolved_tags)
+                    if not continue_copy:
+                        return
+                    else:
+                        log_message(f"Copied macro '{macro_key[1]}' with unresolved tags: {unresolved_tags}")
+            
+            # At this point, if we've made it here, user has confirmed all dialogs
             # Ensure we're copying plain text
             pyperclip.copy(content)
             log_message(f"Copied macro '{macro_key[1]}' to clipboard.")
             print(f"Copied to clipboard: {macro_key[1]}")
             
-            # Debug for usage counts
-            print(f"Before update: Usage count for {macro_key} = {macro_usage_counts.get(macro_key, 0)}")
-            
             # Update usage count
             macro_usage_counts[macro_key] = macro_usage_counts.get(macro_key, 0) + 1
-            print(f"After update: Usage count for {macro_key} = {macro_usage_counts[macro_key]}")
+            save_usage_counts()
             
-            # Debug for save function
-            save_result = save_usage_counts()
-            print(f"Save usage counts result: {save_result}")
+            # Show copied success popup
+            show_copied_popup(window, macro_key[1])
             
         except Exception as e:
-            print(f"Error updating usage counts: {e}")
+            print(f"Error: {e}")
             messagebox.showerror("Clipboard Error", f"Could not copy to clipboard: {e}")
             log_message(f"Clipboard error for macro '{macro_key[1]}': {e}")
     elif macro_key:
         log_message(f"Attempted to copy non-existent macro: {macro_key}")
         messagebox.showerror("Error", f"Macro '{macro_key[1]}' not found in current data.")
+
+def show_placeholder_dialog(macro_name, placeholders):
+    """
+    Creates a custom dialog to input values for all placeholders at once.
+    Returns a dictionary of placeholder:value pairs or None if canceled.
+    """
+    dialog = ctk.CTkToplevel()
+    dialog.title(f"Fill Placeholders for '{macro_name}'")
+    # Keep window large but with more reasonable proportions
+    dialog.geometry("900x650")  
+    dialog.minsize(800, 600)
+    dialog.grab_set()
+    
+    # Header with app-matching style
+    header_frame = ctk.CTkFrame(dialog, fg_color="#181C22", height=60, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text=f"Fill Placeholder Values",
+        font=("Segoe UI", 18, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(20, 0), pady=10)
+    
+    # Content area with scrollable frame
+    content_frame = ctk.CTkScrollableFrame(dialog)
+    content_frame.pack(fill="both", expand=True, padx=25, pady=25)
+    
+    # Description label
+    desc_label = ctk.CTkLabel(
+        content_frame,
+        text=f"Please enter values for the following placeholders in '{macro_name}':",
+        font=("Segoe UI", 14),
+        wraplength=700,
+        justify="left"
+    )
+    desc_label.pack(anchor="w", pady=(0, 20))
+    
+    # Create entry fields for each placeholder
+    entries = {}
+    sorted_placeholders = sorted(placeholders)
+    
+    for i, placeholder in enumerate(sorted_placeholders):
+        # Frame for each placeholder
+        ph_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        ph_frame.pack(fill="x", pady=(5, 15))
+        
+        # Label for placeholder
+        ph_label = ctk.CTkLabel(
+            ph_frame,
+            text=f"{placeholder}:",
+            font=("Segoe UI", 13),
+            anchor="w"
+        )
+        ph_label.pack(anchor="w")
+        
+        # Entry for value
+        ph_entry = ctk.CTkEntry(ph_frame, width=700, height=35)
+        ph_entry.pack(fill="x", pady=(5, 0))
+        
+        entries[placeholder] = ph_entry
+    
+    # Warning label (initially hidden)
+    warning_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+    warning_frame.pack(fill="x", padx=25, pady=(0, 5))
+    
+    warning_label = ctk.CTkLabel(
+        warning_frame,
+        text="Warning: Some placeholders are empty. They will remain as {{placeholder}} in the text.",
+        text_color="orange",
+        font=("Segoe UI", 13),
+        wraplength=700
+    )
+    warning_label.pack(fill="x")
+    warning_frame.pack_forget()  # Initially hidden
+    
+    # Set focus to the first entry
+    if sorted_placeholders:
+        entries[sorted_placeholders[0]].focus_set()
+    
+    # Result variable to store output
+    result = [None]
+    
+    # Button frame
+    btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(0, 20), padx=25)
+    
+    def on_cancel():
+        result[0] = None
+        dialog.destroy()
+    
+    def on_submit():
+        # Collect values from entries
+        values = {ph: entry.get() for ph, entry in entries.items()}
+        
+        # Check if any entries are empty
+        empty_entries = [ph for ph, value in values.items() if not value.strip()]
+        
+        if empty_entries:
+            # Show warning
+            warning_label.configure(text=f"Warning: {len(empty_entries)} placeholder(s) are empty. They will remain as {{placeholder}} in the text.")
+            warning_frame.pack(fill="x", padx=25, pady=(0, 10))
+            
+            # Ask for confirmation
+            confirm_btn = ctk.CTkButton(
+                warning_frame,
+                text="Continue Anyway",
+                command=lambda: confirm_submit(values),
+                fg_color="#FF8C00",  # Orange color
+                hover_color="#E67300",  # Darker orange
+                height=35,
+                width=120
+            )
+            confirm_btn.pack(side="right", pady=(5, 0))
+            
+            # Highlight empty entries
+            for ph in empty_entries:
+                entries[ph].configure(border_color="orange", border_width=2)
+        else:
+            result[0] = values
+            dialog.destroy()
+    
+    def confirm_submit(values):
+        result[0] = values
+        dialog.destroy()
+    
+    # Allow pressing Enter to submit
+    def handle_enter(event):
+        on_submit()
+    
+    for entry in entries.values():
+        entry.bind("<Return>", handle_enter)
+    
+    # Allow Tab to navigate between entries (default behavior)
+    
+    # Buttons
+    cancel_btn = ctk.CTkButton(
+        btn_frame,
+        text="Cancel",
+        command=on_cancel,
+        fg_color="red",
+        height=35,
+        width=100
+    )
+    cancel_btn.pack(side="left", padx=(0, 10))
+    
+    submit_btn = ctk.CTkButton(
+        btn_frame,
+        text="Submit",
+        command=on_submit,
+        height=35,
+        width=100
+    )
+    submit_btn.pack(side="left")
+    
+    # Bind Escape key to cancel
+    dialog.bind("<Escape>", lambda event: on_cancel())
+    
+    # Center on screen
+    dialog.update_idletasks()
+    width = dialog.winfo_width()
+    height = dialog.winfo_height()
+    x = (dialog.winfo_screenwidth() // 2) - (width // 2)
+    y = (dialog.winfo_screenheight() // 2) - (height // 2)
+    dialog.geometry(f"{width}x{height}+{x}+{y}")
+    
+    # Wait for user interaction
+    dialog.wait_window()
+    return result[0]
 
 def open_macro_file():
     """Opens the current macro data file using the OS default text editor."""
@@ -797,7 +996,7 @@ def add_macro_popup(update_list_func, category_dropdown):
 
     add_btn = ctk.CTkButton(btn_frame, text="Add Macro", command=add_macro_action)
     add_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
-    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=popup.destroy, fg_color="gray")
+    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=popup.destroy, fg_color="red")
     cancel_btn.pack(side="right", padx=(5, 0), expand=True, fill="x")
 
 def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
@@ -907,7 +1106,7 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
 
     save_btn = ctk.CTkButton(btn_frame, text="Save Changes", command=save_changes_action)
     save_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
-    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=popup.destroy, fg_color="gray")
+    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=popup.destroy, fg_color="red")
     cancel_btn.pack(side="right", padx=(5, 0), expand=True, fill="x")
 
 def create_category_window(update_list_func, category_dropdown):
@@ -1245,6 +1444,12 @@ def create_macro_window():
     file_menu.add_separator()
     file_menu.add_command(label="Change App Icon", command=lambda: change_app_icon(window))
     
+    # Reference File submenu
+    reference_file_menu = tk.Menu(file_menu, tearoff=0)
+    file_menu.add_cascade(label="Reference File", menu=reference_file_menu)
+    reference_file_menu.add_command(label="Select Reference File", command=select_reference_file)
+    reference_file_menu.add_command(label="View Reference File", command=view_reference_file)
+    
     tools_menu = tk.Menu(menubar, tearoff=0)
     menubar.add_cascade(label="Tools", menu=tools_menu)
     tools_menu.add_command(label="Macro Categories", command=lambda: create_category_window(update_list, category_dropdown))
@@ -1258,7 +1463,27 @@ def create_macro_window():
     
     help_menu = tk.Menu(menubar, tearoff=0)
     menubar.add_cascade(label="Help", menu=help_menu)
-    help_menu.add_command(label="About", command=lambda: messagebox.showinfo("About MacroMouse", "MacroMouse v1.0\nA macro management tool."))
+    
+    # Open README.md instead of showing a generic About box
+    def open_readme():
+        readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
+        if os.path.exists(readme_path):
+            try:
+                if sys.platform.startswith('win32'):
+                    os.startfile(readme_path)
+                elif sys.platform.startswith('darwin'):
+                    subprocess.run(['open', readme_path], check=True)
+                else:
+                    subprocess.run(['xdg-open', readme_path], check=True)
+                log_message(f"Opened README.md file")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open README.md file:\n{e}")
+                log_message(f"Error opening README.md: {e}")
+        else:
+            messagebox.showerror("Error", "README.md file not found in application directory.")
+            
+    help_menu.add_command(label="About / Help", command=open_readme)
+    help_menu.add_command(label="Placeholder References", command=show_placeholder_help)
 
     window.grid_rowconfigure(0, weight=1)
     window.grid_columnconfigure(0, weight=1)
@@ -1388,16 +1613,38 @@ def create_macro_window():
     del_btn.grid(row=0, column=2, padx=2, sticky="ew")
     reset_btn = ctk.CTkButton(action_button_frame, text="Reset Order", command=reset_order)
     reset_btn.grid(row=0, column=3, padx=2, sticky="ew")
-
-    close_button = ctk.CTkButton(left_frame, text="Close MacroMouse", command=window.destroy, fg_color="gray", height=35)
-    close_button.grid(row=4, column=0, padx=10, pady=(10, 10), sticky="ew")
+    
+    # New bottom action row for Close button
+    bottom_action_frame = ctk.CTkFrame(left_frame, fg_color="transparent")
+    bottom_action_frame.grid(row=4, column=0, padx=10, pady=(5, 10), sticky="ew")
+    # Use the same column configuration as action_button_frame
+    bottom_action_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
+    
+    # Use the same configuration as add_btn, but only in the first position
+    close_button = ctk.CTkButton(bottom_action_frame, text="Close MacroMouse", command=window.destroy, fg_color="red", width=140)
+    close_button.grid(row=0, column=0, padx=2, sticky="ew")
+    
+    # Add invisible placeholder buttons to maintain spacing consistency
+    placeholder1 = ctk.CTkButton(bottom_action_frame, text="", fg_color="transparent", hover=False, border_width=0)
+    placeholder1.grid(row=0, column=1, padx=2, sticky="ew")
+    placeholder2 = ctk.CTkButton(bottom_action_frame, text="", fg_color="transparent", hover=False, border_width=0)
+    placeholder2.grid(row=0, column=2, padx=2, sticky="ew")
+    placeholder3 = ctk.CTkButton(bottom_action_frame, text="", fg_color="transparent", hover=False, border_width=0)
+    placeholder3.grid(row=0, column=3, padx=2, sticky="ew")
 
     preview_frame = ctk.CTkFrame(window)
     preview_frame.grid(row=0, column=1, padx=(0, 10), pady=10, sticky="nsew")
     preview_frame.grid_rowconfigure(1, weight=1)
     preview_frame.grid_columnconfigure(0, weight=1)
-    preview_label = ctk.CTkLabel(preview_frame, text="Macro Preview:")
-    preview_label.grid(row=0, column=0, padx=10, pady=(0, 5), sticky="w")
+    
+    preview_header_frame = ctk.CTkFrame(preview_frame, fg_color="transparent")
+    preview_header_frame.grid(row=0, column=0, padx=10, pady=(0, 5), sticky="ew")
+    preview_label = ctk.CTkLabel(preview_header_frame, text="Macro Preview:")
+    preview_label.pack(side="left", padx=(0, 5))
+    # Add reference button
+    reference_btn = ctk.CTkButton(preview_header_frame, text="View Reference", width=120, command=view_reference_file)
+    reference_btn.pack(side="right")
+    
     preview_text = ctk.CTkTextbox(preview_frame, wrap="word", font=("Consolas", 11))
     preview_text.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
     preview_text.configure(state="disabled")
@@ -1520,7 +1767,7 @@ def create_macro_window():
 
 def main():
     """Main entry point for the application."""
-    global macro_data_file_path, log_file_path, config_file_path
+    global macro_data_file_path, log_file_path, config_file_path, reference_file_path
     
     # Store data in a subdirectory of the script's location
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1547,8 +1794,13 @@ def main():
     # Load usage counts
     load_usage_counts()
     
-    # Set theme from config
+    # Load reference file path from config
     config = load_config()
+    reference_file_path = config.get('reference_file', None)
+    if reference_file_path:
+        log_message(f"Reference file: {reference_file_path}")
+    
+    # Set theme from config
     theme_mode = config.get('theme_mode', 'Dark')
     ctk.set_appearance_mode(theme_mode)
     ctk.set_default_color_theme("dark-blue")
@@ -1886,6 +2138,322 @@ def delete_all_usage_counts():
     x = window.winfo_rootx() + (window.winfo_width() // 2) - (confirm_dialog.winfo_width() // 2)
     y = window.winfo_rooty() + (window.winfo_height() // 2) - (confirm_dialog.winfo_height() // 2)
     confirm_dialog.geometry(f"+{x}+{y}")
+
+def select_reference_file():
+    """Allows the user to select a reference file."""
+    global reference_file_path
+    config = load_config()
+    
+    initial_dir = os.path.dirname(config.get('reference_file', '')) or os.path.expanduser("~")
+    file_path = filedialog.askopenfilename(
+        title="Select Reference File",
+        filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+        initialdir=initial_dir
+    )
+    
+    if not file_path:
+        return False
+        
+    # Save the reference file path to config
+    config['reference_file'] = file_path
+    reference_file_path = file_path
+    if save_config(config):
+        log_message(f"Set reference file to: {file_path}")
+        return True
+    else:
+        messagebox.showerror("Error", "Failed to save reference file configuration")
+        return False
+
+def view_reference_file():
+    """Opens the reference file using the default system text editor."""
+    global reference_file_path
+    config = load_config()
+    
+    # Use the reference file path from config if it's not set globally
+    if not reference_file_path:
+        reference_file_path = config.get('reference_file', None)
+        
+    if not reference_file_path or not os.path.exists(reference_file_path):
+        # Create a default reference file instead of prompting
+        app_data_dir = os.path.dirname(macro_data_file_path)
+        default_ref_path = os.path.join(app_data_dir, "placeholder_reference.txt")
+        
+        # Create the default reference file with examples
+        try:
+            with open(default_ref_path, 'w') as f:
+                f.write("""# MacroMouse Placeholder Reference
+
+This file serves as a reference for placeholders used in your macros.
+
+## Common Placeholders
+
+{{customer_name}} - Full name of the customer
+{{first_name}} - Customer's first name
+{{last_name}} - Customer's last name
+{{order_number}} - Order or ticket reference number
+{{date}} - Current date (you can use any format)
+{{time}} - Current time
+{{company}} - Your company name
+{{product}} - Product name or service
+{{agent_name}} - Your name or support representative name
+{{contact_email}} - Contact email address
+{{contact_phone}} - Contact phone number
+
+## Email Templates Example
+
+"Hello {{customer_name}},
+
+Thank you for contacting {{company}} about your recent {{product}} purchase (#{{order_number}}). 
+
+Your request has been received and is being processed by {{agent_name}}. We'll get back to you within 24 hours.
+
+Best regards,
+{{agent_name}}
+{{company}}
+{{contact_email}}
+{{contact_phone}}"
+
+## Notes
+
+- You can add your own placeholders as needed
+- The same placeholder used multiple times will be filled with the same value
+- Placeholder names are case-sensitive
+- Add your commonly used placeholder patterns below:
+
+""")
+            
+            # Update config with the new reference file path
+            reference_file_path = default_ref_path
+            config['reference_file'] = default_ref_path
+            save_config(config)
+            log_message(f"Created default reference file at: {default_ref_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not create default reference file:\n{e}")
+            log_message(f"Error creating default reference file: {e}")
+            return
+        
+    # Try to open the file
+    try:
+        if sys.platform.startswith('win32'):
+            os.startfile(reference_file_path)
+        elif sys.platform.startswith('darwin'):
+            subprocess.run(['open', reference_file_path], check=True)
+        else:
+            subprocess.run(['xdg-open', reference_file_path], check=True)
+        log_message(f"Opened reference file: {reference_file_path}")
+    except Exception as e:
+        messagebox.showerror("Error Opening File", f"Could not open reference file:\n{e}")
+        log_message(f"Error opening reference file: {e}")
+
+def show_unresolved_tags_dialog(macro_name, unresolved_tags):
+    """
+    Shows a dialog warning about unresolved tags.
+    Returns True to continue, False to cancel.
+    """
+    dialog = ctk.CTkToplevel()
+    dialog.title("Unresolved Placeholders")
+    # Keep window large but with more reasonable proportions
+    dialog.geometry("800x550")
+    dialog.minsize(700, 500)
+    dialog.grab_set()
+    
+    # Header matching app style
+    header_frame = ctk.CTkFrame(dialog, fg_color="#181C22", height=60, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="Unresolved Placeholders",
+        font=("Segoe UI", 18, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(20, 0), pady=10)
+    
+    # Main content
+    content_frame = ctk.CTkFrame(dialog)
+    content_frame.pack(fill="both", expand=True, padx=25, pady=25)
+    
+    warning_label = ctk.CTkLabel(
+        content_frame,
+        text=f"The macro '{macro_name}' contains {len(unresolved_tags)} unresolved placeholder(s):",
+        font=("Segoe UI", 14),
+        wraplength=700,
+        justify="left"
+    )
+    warning_label.pack(anchor="w", pady=(0, 20))
+    
+    # List of unresolved tags in a scrollable frame
+    tags_frame = ctk.CTkScrollableFrame(content_frame, height=200)
+    tags_frame.pack(fill="x", pady=(0, 20))
+    
+    for tag in sorted(unresolved_tags):
+        tag_label = ctk.CTkLabel(
+            tags_frame,
+            text=f"• {{{{{tag}}}}}",
+            font=("Segoe UI", 13),
+            anchor="w"
+        )
+        tag_label.pack(anchor="w", pady=4)
+    
+    question_label = ctk.CTkLabel(
+        content_frame,
+        text="Do you want to continue with the unresolved placeholders?",
+        font=("Segoe UI", 14),
+        wraplength=700,
+        justify="left"
+    )
+    question_label.pack(anchor="w", pady=(0, 20))
+    
+    # Result variable
+    result = [False]
+    
+    # Buttons
+    btn_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    btn_frame.pack(fill="x")
+    
+    def on_no():
+        result[0] = False
+        dialog.destroy()
+    
+    def on_yes():
+        result[0] = True
+        dialog.destroy()
+    
+    no_btn = ctk.CTkButton(
+        btn_frame,
+        text="No",
+        command=on_no,
+        fg_color="red",
+        height=35,
+        width=100
+    )
+    no_btn.pack(side="left", padx=(0, 10))
+    
+    yes_btn = ctk.CTkButton(
+        btn_frame,
+        text="Yes",
+        command=on_yes,
+        height=35,
+        width=100
+    )
+    yes_btn.pack(side="left")
+    yes_btn.focus_set()  # Set focus to Yes button
+    
+    # Keyboard shortcuts
+    dialog.bind("<Escape>", lambda event: on_no())  # Esc key for No
+    dialog.bind("<Return>", lambda event: on_yes())  # Enter key for Yes
+    
+    # Center on screen
+    dialog.update_idletasks()
+    width = dialog.winfo_width()
+    height = dialog.winfo_height()
+    x = (dialog.winfo_screenwidth() // 2) - (width // 2)
+    y = (dialog.winfo_screenheight() // 2) - (height // 2)
+    dialog.geometry(f"{width}x{height}+{x}+{y}")
+    
+    # Wait for user interaction
+    dialog.wait_window()
+    return result[0]
+
+# Add help for the placeholder feature
+def show_placeholder_help():
+    help_popup = ctk.CTkToplevel(window)
+    help_popup.title("Placeholder References Help")
+    help_popup.geometry("900x650")
+    help_popup.minsize(800, 600)
+    help_popup.grab_set()
+    
+    # Header
+    header_frame = ctk.CTkFrame(help_popup, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="Placeholder References Help",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content
+    content_frame = ctk.CTkScrollableFrame(help_popup)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    help_text = """
+    # Dynamic Placeholders
+    
+    MacroMouse supports dynamic placeholders in your macros using the {{tag}} syntax.
+    
+    ## How It Works
+    
+    1. When creating or editing a macro, include placeholders in double curly braces:
+       Example: "Hello {{name}}, your order #{{order_number}} has been processed."
+    
+    2. When you copy the macro:
+       - MacroMouse will detect all {{tag}} placeholders
+       - For each unique tag, you'll be prompted to enter a value
+       - All instances of that tag will be replaced with your input
+    
+    ## Tips
+    
+    - Use descriptive placeholder names like {{customer_name}}, {{date}}, etc.
+    - You can use the Reference File to keep notes on your placeholder naming system
+    - The same placeholder used multiple times will be replaced with the same value
+    - Empty placeholders will remain as {{placeholder}} in the final text
+    
+    ## Reference File
+    
+    - The Reference File should be a plain text (.txt) file
+    - You can create this file in any text editor (Notepad, etc.)
+    - Use it to document your commonly used placeholders and their purpose
+    - Access your reference file quickly via:
+      • File → Reference File → View Reference File
+      • The "View Reference" button next to the preview pane
+    
+    ## Example
+    
+    Original macro:
+    "Hi {{customer}}, this is {{agent_name}} following up on your {{service}} inquiry from {{date}}."
+    
+    When copied, you'll be prompted for:
+    - customer
+    - agent_name
+    - service
+    - date
+    
+    And the resulting text will have all placeholders replaced with your entries.
+    """
+    
+    help_label = ctk.CTkLabel(
+        content_frame, 
+        text=help_text,
+        font=("Segoe UI", 12),
+        wraplength=800,
+        justify="left",
+        anchor="w"
+    )
+    help_label.pack(pady=10, fill="both", expand=True)
+    
+    # OK button
+    ok_btn = ctk.CTkButton(
+        help_popup, 
+        text="OK", 
+        command=help_popup.destroy, 
+        height=35,
+        width=100,
+        fg_color="red"
+    )
+    ok_btn.pack(pady=(0, 15))
+    
+    # Center on screen
+    help_popup.update_idletasks()
+    width = help_popup.winfo_width()
+    height = help_popup.winfo_height()
+    x = (help_popup.winfo_screenwidth() // 2) - (width // 2)
+    y = (help_popup.winfo_screenheight() // 2) - (height // 2)
+    help_popup.geometry(f"{width}x{height}+{x}+{y}")
 
 if __name__ == "__main__":
     if sys.platform.startswith('win32'):
