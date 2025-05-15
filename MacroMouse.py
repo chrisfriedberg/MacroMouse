@@ -24,6 +24,9 @@ macros_dict = {}  # In-memory macro storage
 macro_usage_counts = {}  # Dictionary to track macro usage counts
 window = None  # Global reference to the main window
 update_list_func = None  # Global reference to the update_list function
+# Dictionary to store the 'Leave Raw' preference for each macro
+global macro_leave_raw_preferences
+macro_leave_raw_preferences = {}
 
 # --- LOGGING ---
 def get_log_timestamp():
@@ -418,7 +421,7 @@ def copy_macro(macro_key):
             content = macros_dict[macro_key]
             
             # Check for {{tag}} placeholders and prompt for input
-            pattern = r'\{\{(.*?)\}\}'
+            pattern = r'\{\{(.*?)\}\}' 
             placeholders = set(re.findall(pattern, content))
             
             # If there are placeholders, show the dialog
@@ -430,19 +433,13 @@ def copy_macro(macro_key):
                 if inputs is None:
                     return
                     
-                # Replace all placeholders with user input
+                # Replace placeholders with user input only if provided
                 for ph, value in inputs.items():
                     if value:  # Only replace if a value was provided
                         content = content.replace(f"{{{{{ph}}}}}", value)
                 
-                # Check for unresolved tags (optional)
-                unresolved_tags = re.findall(pattern, content)
-                if unresolved_tags:
-                    continue_copy = show_unresolved_tags_dialog(macro_key[1], unresolved_tags)
-                    if not continue_copy:
-                        return
-                    else:
-                        log_message(f"Copied macro '{macro_key[1]}' with unresolved tags: {unresolved_tags}")
+                # Do not show warning for unresolved tags if any are due to 'Leave Raw'
+                # We skip the unresolved tags dialog entirely since 'Leave Raw' handles it
             
             # At this point, if we've made it here, user has confirmed all dialogs
             # Ensure we're copying plain text
@@ -469,7 +466,9 @@ def show_placeholder_dialog(macro_name, placeholders):
     """
     Creates a custom dialog to input values for all placeholders at once.
     Returns a dictionary of placeholder:value pairs or None if canceled.
+    Includes a 'Leave Raw' checkbox for each placeholder to keep original text.
     """
+    global macro_leave_raw_preferences
     dialog = ctk.CTkToplevel()
     dialog.title(f"Fill Placeholders for '{macro_name}'")
     # Keep window large but with more reasonable proportions
@@ -504,9 +503,14 @@ def show_placeholder_dialog(macro_name, placeholders):
     )
     desc_label.pack(anchor="w", pady=(0, 20))
     
-    # Create entry fields for each placeholder
+    # Create entry fields and checkboxes for each placeholder
     entries = {}
+    leave_raw_vars = {}
     sorted_placeholders = sorted(placeholders)
+    
+    # Initialize preferences for this macro if not already present
+    if macro_name not in macro_leave_raw_preferences:
+        macro_leave_raw_preferences[macro_name] = {}
     
     for i, placeholder in enumerate(sorted_placeholders):
         # Frame for each placeholder
@@ -526,7 +530,18 @@ def show_placeholder_dialog(macro_name, placeholders):
         ph_entry = ctk.CTkEntry(ph_frame, width=700, height=35)
         ph_entry.pack(fill="x", pady=(5, 0))
         
+        # 'Leave Raw' checkbox for this placeholder
+        leave_raw_var = tk.BooleanVar(value=macro_leave_raw_preferences[macro_name].get(placeholder, False))
+        leave_raw_checkbox = ctk.CTkCheckBox(
+            ph_frame,
+            text="Leave Raw",
+            variable=leave_raw_var,
+            font=("Segoe UI", 11)
+        )
+        leave_raw_checkbox.pack(anchor="w", pady=(2, 0))
+        
         entries[placeholder] = ph_entry
+        leave_raw_vars[placeholder] = leave_raw_var
     
     # Warning label (initially hidden)
     warning_frame = ctk.CTkFrame(dialog, fg_color="transparent")
@@ -558,14 +573,24 @@ def show_placeholder_dialog(macro_name, placeholders):
         dialog.destroy()
     
     def on_submit():
-        # Collect values from entries
-        values = {ph: entry.get() for ph, entry in entries.items()}
+        # Save the 'Leave Raw' preferences for each placeholder in this macro
+        for placeholder in sorted_placeholders:
+            macro_leave_raw_preferences[macro_name][placeholder] = leave_raw_vars[placeholder].get()
+        save_leave_raw_preferences()
         
-        # Check if any entries are empty
-        empty_entries = [ph for ph, value in values.items() if not value.strip()]
+        # Collect values from entries, respecting 'Leave Raw' settings
+        values = {}
+        for ph in sorted_placeholders:
+            if not leave_raw_vars[ph].get():
+                value = entries[ph].get()
+                if value:  # Only include if a value was provided
+                    values[ph] = value
+        
+        # Check if any non-'Leave Raw' entries are empty
+        empty_entries = [ph for ph in sorted_placeholders if not leave_raw_vars[ph].get() and not entries[ph].get().strip()]
         
         if empty_entries:
-            # Show warning
+            # Show warning only for non-'Leave Raw' empty entries
             warning_label.configure(text=f"Warning: {len(empty_entries)} placeholder(s) are empty. They will remain as {{placeholder}} in the text.")
             warning_frame.pack(fill="x", padx=25, pady=(0, 10))
             
@@ -1793,6 +1818,9 @@ def main():
     # Load usage counts
     load_usage_counts()
     
+    # Load 'Leave Raw' preferences
+    load_leave_raw_preferences()
+    
     # Load reference file path from config
     config = load_config()
     reference_file_path = config.get('reference_file', None)
@@ -2453,6 +2481,41 @@ def show_placeholder_help():
     x = (help_popup.winfo_screenwidth() // 2) - (width // 2)
     y = (help_popup.winfo_screenheight() // 2) - (height // 2)
     help_popup.geometry(f"{width}x{height}+{x}+{y}")
+
+def save_leave_raw_preferences():
+    """Save 'Leave Raw' preferences for macros to a separate JSON file."""
+    global macro_data_file_path, macro_leave_raw_preferences
+    if not macro_data_file_path:
+        return False
+    
+    # Create the preferences file path in the same directory as the macro data file
+    preferences_file_path = os.path.join(os.path.dirname(macro_data_file_path), "leave_raw_preferences.json")
+    
+    try:
+        with open(preferences_file_path, 'w') as f:
+            json.dump(macro_leave_raw_preferences, f, indent=4)
+        return True
+    except Exception as e:
+        log_message(f"Error saving 'Leave Raw' preferences: {e}")
+        return False
+
+def load_leave_raw_preferences():
+    """Load 'Leave Raw' preferences for macros from a separate JSON file."""
+    global macro_data_file_path, macro_leave_raw_preferences
+    if not macro_data_file_path:
+        return
+    
+    preferences_file_path = os.path.join(os.path.dirname(macro_data_file_path), "leave_raw_preferences.json")
+    
+    if not os.path.exists(preferences_file_path):
+        return  # No preferences data yet
+    
+    try:
+        with open(preferences_file_path, 'r') as f:
+            macro_leave_raw_preferences.clear()
+            macro_leave_raw_preferences.update(json.load(f))
+    except Exception as e:
+        log_message(f"Error loading 'Leave Raw' preferences: {e}")
 
 if __name__ == "__main__":
     if sys.platform.startswith('win32'):
