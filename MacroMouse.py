@@ -1013,10 +1013,11 @@ def add_macro_popup(update_list_func, category_dropdown):
 
     def on_cat_change(choice):
         if choice == "+ New Category":
-            new_cat = ctk.CTkInputDialog(text="Enter new category name:", title="New Category").get_input()
-            if new_cat and new_cat.strip():
-                new_cat = new_cat.strip()
-                cat_id = create_new_category(new_cat)
+            new_cat_info = show_new_category_dialog(popup)
+            if new_cat_info and new_cat_info["name"]:
+                new_cat = new_cat_info["name"]
+                new_desc = new_cat_info["desc"]
+                cat_id = create_new_category(new_cat, new_desc)
                 if cat_id:
                     category_names.insert(-1, new_cat)
                     cat_var.set(new_cat)
@@ -1121,10 +1122,11 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
 
     def on_cat_change(choice):
         if choice == "+ New Category":
-            new_cat = ctk.CTkInputDialog(text="Enter new category name:", title="New Category").get_input()
-            if new_cat and new_cat.strip():
-                new_cat = new_cat.strip()
-                cat_id = create_new_category(new_cat)
+            new_cat_info = show_new_category_dialog(popup)
+            if new_cat_info and new_cat_info["name"]:
+                new_cat = new_cat_info["name"]
+                new_desc = new_cat_info["desc"]
+                cat_id = create_new_category(new_cat, new_desc)
                 if cat_id:
                     category_names.insert(-1, new_cat)
                     cat_var.set(new_cat)
@@ -1299,7 +1301,7 @@ def create_category_window(update_list_func, category_dropdown):
                 )
                 hide_btn.pack(side="left", padx=(0, 6))
                 # Edit button
-                edit_btn = ctk.CTkButton(btn_frame, text="Edit", width=50, **btn_style, command=lambda c=cat_id: edit_category_popup(c, update_category_list, update_list_func, category_dropdown))
+                edit_btn = ctk.CTkButton(btn_frame, text="Edit", width=50, **btn_style, command=lambda c=cat_id: edit_category_popup(c, update_category_list, update_list_func, category_dropdown, categories))
                 edit_btn.pack(side="left", padx=(0, 6))
                 # Delete button
                 delete_btn = ctk.CTkButton(btn_frame, text="Delete", width=60, **btn_style, command=lambda c=cat_id: delete_category(c))
@@ -1316,6 +1318,10 @@ def create_category_window(update_list_func, category_dropdown):
                 # Bottom button
                 bottom_btn = ctk.CTkButton(btn_frame, text="Bottom", width=40, **btn_style, command=lambda c=cat_id: move_category(c, "bottom"))
                 bottom_btn.pack(side="left", padx=(0, 0))
+
+            # After creating the label in update_category_list, add:
+            if cat_data.get("description"):
+                CTkTooltip(label, cat_data["description"])
 
     def move_category(cat_id, direction):
         idx = category_order.index(cat_id)
@@ -1448,7 +1454,7 @@ def create_category_window(update_list_func, category_dropdown):
     # Initial update of the category list
     update_category_list()
 
-def edit_category_popup(cat_id, update_category_list=None, update_list_func=None, category_dropdown=None):
+def edit_category_popup(cat_id, update_category_list=None, update_list_func=None, category_dropdown=None, categories=None):
     """Edit category popup that can be called from various contexts."""
     # Load fresh data
     data = load_macro_data()
@@ -1456,7 +1462,7 @@ def edit_category_popup(cat_id, update_category_list=None, update_list_func=None
     
     popup = ctk.CTkToplevel()
     popup.title("Edit Category")
-    popup.geometry("350x180")
+    popup.geometry("350x230")  # Increased height by 50px
     popup.grab_set()
     
     name_label = ctk.CTkLabel(popup, text="Category Name:")
@@ -1468,38 +1474,38 @@ def edit_category_popup(cat_id, update_category_list=None, update_list_func=None
     desc_label = ctk.CTkLabel(popup, text="Description (optional):")
     desc_label.pack(pady=(10, 0))
     desc_entry = ctk.CTkEntry(popup)
-    desc_entry.insert(0, cat_data.get("description", ""))
+    desc_entry.insert(0, cat_data.get("description") or "")
     desc_entry.pack(pady=5, padx=10, fill="x")
     
     def save_edit():
         new_name = name_entry.get().strip()
         new_desc = desc_entry.get().strip()
-        
         if not new_name:
             messagebox.showerror("Error", "Category name cannot be empty.")
             return
-            
-        # Update category data
         cat_data["name"] = new_name
         cat_data["description"] = new_desc
         cat_data["modified"] = datetime.now().isoformat()
-        
-        # Save changes to file
         save_macro_data(data)
-        
-        # Update UI elements if provided
-        if update_category_list:
+        # Reload data and update the categories dict in-place
+        if update_category_list and categories is not None:
+            new_data = load_macro_data()
+            categories.clear()
+            categories.update(new_data["categories"])
             update_category_list()
         if category_dropdown:
             category_dropdown.configure(values=get_categories())
             category_dropdown.set("All")
         if update_list_func:
             update_list_func()
-            
         popup.destroy()
-        
-    save_btn = ctk.CTkButton(popup, text="Save", command=save_edit)
-    save_btn.pack(pady=10)
+    
+    btn_frame = ctk.CTkFrame(popup)
+    btn_frame.pack(pady=10, padx=10, fill="x")
+    save_btn = ctk.CTkButton(btn_frame, text="Save", command=save_edit)
+    save_btn.pack(side="left", expand=True, fill="x", padx=(0, 5))
+    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=popup.destroy, fg_color="red")
+    cancel_btn.pack(side="right", expand=True, fill="x", padx=(5, 0))
 
 # --- MAIN APPLICATION WINDOW ---
 def create_macro_window():
@@ -1653,20 +1659,55 @@ def create_macro_window():
     def remove_action():
         global selected_macro_name
         if selected_macro_name:
-            if messagebox.askyesno("Confirm Delete", f"Are you sure you want to remove '{selected_macro_name[1]}'?"):
-                data = load_macro_data()
-                macro_id = None
-                for mid, macro in data["macros"].items():
-                    if macro["name"] == selected_macro_name[1]:
-                        macro_id = mid
-                        break
-                if macro_id and delete_macro_from_data(macro_id):
-                    if selected_macro_name in macros_dict:
-                        del macros_dict[selected_macro_name]
-                    selected_macro_name = None
-                    update_list()
-                else:
-                    messagebox.showerror("Error", "Failed to delete macro from data file.")
+            data = load_macro_data()
+            macro_id = None
+            macro_cat_id = None
+            for mid, macro in data["macros"].items():
+                if macro["name"] == selected_macro_name[1]:
+                    macro_id = mid
+                    macro_cat_id = macro["category_id"]
+                    break
+            if not macro_id:
+                messagebox.showerror("Error", "Failed to find macro in data file.")
+                return
+            macro_name_for_msg = selected_macro_name[1]  # Save before clearing
+            # Count macros in this category
+            macros_in_cat = [m for m in data["macros"].values() if m["category_id"] == macro_cat_id]
+            if len(macros_in_cat) == 1:
+                # This is the last macro in the category
+                if messagebox.askyesno("Confirm Delete", f"Are you sure you want to remove '{macro_name_for_msg}'?"):
+                    # Prompt to also delete the category
+                    cat_name = data["categories"][macro_cat_id]["name"]
+                    if messagebox.askyesno("Delete Category?", f"Do you wish to also delete the category '{cat_name}' as this is the last macro in it?"):
+                        # Delete macro and category
+                        del data["macros"][macro_id]
+                        del data["categories"][macro_cat_id]
+                        save_macro_data(data)
+                        if selected_macro_name in macros_dict:
+                            del macros_dict[selected_macro_name]
+                        selected_macro_name = None
+                        update_list()
+                        messagebox.showinfo("Deleted", f"Macro and category '{cat_name}' deleted.")
+                    else:
+                        # Final confirmation for macro only
+                        if messagebox.askyesno("Confirm Deleting Macro", f"Confirm deleting the macro '{macro_name_for_msg}'? This will leave the category with no macros."):
+                            del data["macros"][macro_id]
+                            save_macro_data(data)
+                            if selected_macro_name in macros_dict:
+                                del macros_dict[selected_macro_name]
+                            selected_macro_name = None
+                            update_list()
+                            messagebox.showinfo("Deleted", f"Macro '{macro_name_for_msg}' deleted.")
+            else:
+                # Standard workflow
+                if messagebox.askyesno("Confirm Delete", f"Are you sure you want to remove '{macro_name_for_msg}'?"):
+                    if macro_id and delete_macro_from_data(macro_id):
+                        if selected_macro_name in macros_dict:
+                            del macros_dict[selected_macro_name]
+                        selected_macro_name = None
+                        update_list()
+                    else:
+                        messagebox.showerror("Error", "Failed to delete macro from data file.")
 
     def reset_order():
         """Reset the macro order by keeping only top 5 counts and sorting the rest alphabetically."""
@@ -1781,7 +1822,7 @@ def create_macro_window():
                 text=f"{cat}:",
                 font=("Segoe UI", 11),
                 text_color="gray",
-                width=100,
+                width=120,  # Increased from 100 to 120
                 anchor="w",
                 justify="left"
             )
@@ -1810,6 +1851,13 @@ def create_macro_window():
             macro_list_items.append(cat_label)
             macro_list_items.append(macro_button)
             
+            # Add tooltip for description if available
+            if cat in [c["name"] for c in load_macro_data()["categories"].values()]:
+                # Find the category data
+                cat_data = next((c for c in load_macro_data()["categories"].values() if c["name"] == cat), None)
+                if cat_data and cat_data.get("description"):
+                    CTkTooltip(cat_label, cat_data["description"])
+        
         if selected:
             on_macro_select(*selected)
 
@@ -2604,6 +2652,59 @@ def styled_hide_category_confirm(parent=None):
         # Tooltips are not natively supported in CTkButton, but you can add a label below or use a custom widget if needed
     )
 # In the make_hide_unhide_handler, replace styled_askyesno with styled_hide_category_confirm and add tooltips as label below buttons if desired.
+
+# Add this helper class near the top of the file (after imports):
+class CTkTooltip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tipwindow = None
+        widget.bind("<Enter>", self.show_tip)
+        widget.bind("<Leave>", self.hide_tip)
+    def show_tip(self, event=None):
+        if self.tipwindow or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(tw, text=self.text, justify='left', background="#222", foreground="white", relief='solid', borderwidth=1, font=("Segoe UI", 10))
+        label.pack(ipadx=6, ipady=2)
+    def hide_tip(self, event=None):
+        if self.tipwindow:
+            self.tipwindow.destroy()
+            self.tipwindow = None
+
+def show_new_category_dialog(parent=None):
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title("New Category")
+    dialog.geometry("350x230")  # Increased height by 50px
+    dialog.grab_set()
+    name_label = ctk.CTkLabel(dialog, text="Category Name:")
+    name_label.pack(pady=(10, 0))
+    name_entry = ctk.CTkEntry(dialog)
+    name_entry.pack(pady=5, padx=10, fill="x")
+    desc_label = ctk.CTkLabel(dialog, text="Description (optional):")
+    desc_label.pack(pady=(10, 0))
+    desc_entry = ctk.CTkEntry(dialog)
+    desc_entry.pack(pady=5, padx=10, fill="x")
+    result = {"name": None, "desc": None}
+    def on_add():
+        result["name"] = name_entry.get().strip()
+        result["desc"] = desc_entry.get().strip()
+        dialog.destroy()
+    def on_cancel():
+        dialog.destroy()
+    btn_frame = ctk.CTkFrame(dialog)
+    btn_frame.pack(pady=10, padx=10, fill="x")
+    add_btn = ctk.CTkButton(btn_frame, text="Add", command=on_add)
+    add_btn.pack(side="left", expand=True, fill="x", padx=(0, 5))
+    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, fg_color="red")
+    cancel_btn.pack(side="right", expand=True, fill="x", padx=(5, 0))
+    name_entry.focus_set()
+    dialog.wait_window()
+    return result if result["name"] else None
 
 if __name__ == "__main__":
     if sys.platform.startswith('win32'):
