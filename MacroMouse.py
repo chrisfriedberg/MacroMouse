@@ -11,6 +11,11 @@ import uuid
 import xml.etree.ElementTree as ET
 import re
 import tkinter.simpledialog as sd
+import pystray
+from PIL import Image, ImageDraw
+import threading
+import functools
+import tempfile
 
 # --- GLOBALS ---
 log_file_path = None
@@ -24,9 +29,14 @@ macros_dict = {}  # In-memory macro storage
 macro_usage_counts = {}  # Dictionary to track macro usage counts
 window = None  # Global reference to the main window
 update_list_func = None  # Global reference to the update_list function
+tray_icon = None  # Global reference to the system tray icon
+last_used_macro = None  # Track the last used macro
 # Dictionary to store the 'Leave Raw' preference for each macro
 global macro_leave_raw_preferences
 macro_leave_raw_preferences = {}
+
+# Store temp icon path globally to prevent deletion
+_temp_icon_path = None
 
 # --- LOGGING ---
 def get_log_timestamp():
@@ -457,6 +467,9 @@ def copy_macro(macro_key):
             # Update usage count
             macro_usage_counts[macro_key] = macro_usage_counts.get(macro_key, 0) + 1
             save_usage_counts()
+            
+            # Update last used macro
+            update_last_used_macro(*macro_key)
             
             # Show copied success popup
             show_copied_popup(window, macro_key[1])
@@ -988,6 +1001,7 @@ def add_macro_popup(update_list_func, category_dropdown):
     popup.title("Add New Macro")
     popup.geometry("500x350")
     popup.grab_set()
+    set_window_icon(popup)
 
     # Macro Name
     name_label = ctk.CTkLabel(popup, text="Macro Name:")
@@ -1097,6 +1111,7 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
     popup.title("Edit Macro")
     popup.geometry("500x350")
     popup.grab_set()
+    set_window_icon(popup)
 
     # Macro Name
     name_label = ctk.CTkLabel(popup, text="Macro Name:")
@@ -1192,6 +1207,7 @@ def create_category_window(update_list_func, category_dropdown):
     category_window.title("Manage Macro Categories")
     category_window.geometry("586x400")  # Increased width by another 50px
     category_window.grab_set()
+    set_window_icon(category_window)
 
     # --- HEADER TOOLBAR ---
     header_frame = ctk.CTkFrame(category_window, fg_color="#181C22", height=44, corner_radius=0)
@@ -1464,6 +1480,7 @@ def edit_category_popup(cat_id, update_category_list=None, update_list_func=None
     popup.title("Edit Category")
     popup.geometry("350x230")  # Increased height by 50px
     popup.grab_set()
+    set_window_icon(popup)
     
     name_label = ctk.CTkLabel(popup, text="Category Name:")
     name_label.pack(pady=(10, 0))
@@ -1754,7 +1771,7 @@ def create_macro_window():
     add_btn.grid(row=0, column=0, padx=2, sticky="ew")
     edit_btn = ctk.CTkButton(action_button_frame, text="Edit Macro", command=edit_action)
     edit_btn.grid(row=0, column=1, padx=2, sticky="ew")
-    del_btn = ctk.CTkButton(action_button_frame, text="Delete Macro", command=remove_action, fg_color="red")
+    del_btn = ctk.CTkButton(action_button_frame, text="Delete Macro", command=remove_action, fg_color="#1f538d")  # Changed to blue
     del_btn.grid(row=0, column=2, padx=2, sticky="ew")
     reset_btn = ctk.CTkButton(action_button_frame, text="Reset Order", command=reset_order)
     reset_btn.grid(row=0, column=3, padx=2, sticky="ew")
@@ -1765,17 +1782,25 @@ def create_macro_window():
     # Use the same column configuration as action_button_frame
     bottom_action_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
     
+    # Add minimize to tray button
+    minimize_btn = ctk.CTkButton(
+        bottom_action_frame,
+        text="Minimize to Tray",
+        command=minimize_to_tray,
+        width=140,
+        fg_color="#2E7D32"  # Changed to green
+    )
+    minimize_btn.grid(row=0, column=0, padx=2, sticky="ew")
+    
     # Use the same configuration as add_btn, but only in the first position
     close_button = ctk.CTkButton(bottom_action_frame, text="Close MacroMouse", command=window.destroy, fg_color="red", width=140)
-    close_button.grid(row=0, column=0, padx=2, sticky="ew")
+    close_button.grid(row=0, column=1, padx=2, sticky="ew")
     
     # Add invisible placeholder buttons to maintain spacing consistency
     placeholder1 = ctk.CTkButton(bottom_action_frame, text="", fg_color="transparent", hover=False, border_width=0)
-    placeholder1.grid(row=0, column=1, padx=2, sticky="ew")
+    placeholder1.grid(row=0, column=2, padx=2, sticky="ew")
     placeholder2 = ctk.CTkButton(bottom_action_frame, text="", fg_color="transparent", hover=False, border_width=0)
-    placeholder2.grid(row=0, column=2, padx=2, sticky="ew")
-    placeholder3 = ctk.CTkButton(bottom_action_frame, text="", fg_color="transparent", hover=False, border_width=0)
-    placeholder3.grid(row=0, column=3, padx=2, sticky="ew")
+    placeholder2.grid(row=0, column=3, padx=2, sticky="ew")
 
     preview_frame = ctk.CTkFrame(window)
     preview_frame.grid(row=0, column=1, padx=(0, 10), pady=10, sticky="nsew")
@@ -1901,6 +1926,7 @@ def create_macro_window():
         config['theme_mode'] = mode
         save_config(config)
 
+    set_window_icon(window)
     update_list()
     window.mainloop()
     
@@ -2005,7 +2031,7 @@ def show_file_paths():
             font=("Segoe UI", 12, "bold"),
             anchor="w"
         )
-        label.pack(anchor="w")
+        label.pack(side="left", padx=(5, 0), fill="x")
         
         # Path value with status indicator
         status_color = "#4CAF50" if exists else "#F44336"  # Green if exists, red if not
@@ -2705,6 +2731,229 @@ def show_new_category_dialog(parent=None):
     name_entry.focus_set()
     dialog.wait_window()
     return result if result["name"] else None
+
+def create_default_icon():
+    """Create a default icon if none exists."""
+    # Create a 64x64 image with a blue background
+    image = Image.new('RGB', (64, 64), color='#1f538d')
+    draw = ImageDraw.Draw(image)
+    
+    # Draw a simple mouse cursor shape
+    draw.polygon([(20, 20), (40, 20), (40, 40), (30, 40), (30, 50), (20, 40)], fill='white')
+    
+    return image
+
+def get_tray_icon():
+    """Get the icon for the tray from config or create default."""
+    config = load_config()
+    if 'icon_path' in config and os.path.exists(config['icon_path']):
+        try:
+            return Image.open(config['icon_path'])
+        except Exception as e:
+            log_message(f"Error loading tray icon: {e}")
+    return create_default_icon()
+
+def get_top_macros():
+    """Get the top 5 most used macros."""
+    if not macro_usage_counts:
+        return []
+    
+    # Sort macros by usage count
+    sorted_macros = sorted(macro_usage_counts.items(), key=lambda x: x[1], reverse=True)
+    return [(cat, name) for (cat, name), _ in sorted_macros[:5]]
+
+def create_tray_menu():
+    """Create the tray icon menu with emoji icons and dynamic window actions. Macros are display-only."""
+    menu_items = []
+    
+    # Add top 5 macros (display only, not clickable)
+    top_macros = get_top_macros()
+    if top_macros:
+        menu_items.append(pystray.MenuItem("🖱️ Top Macros", None, enabled=False))
+        for cat, name in top_macros:
+            menu_items.append(pystray.MenuItem(
+                f"[{cat}] ⚡ {name}",
+                None,
+                enabled=False
+            ))
+    
+    # Add last used macro if exists (display only)
+    if last_used_macro:
+        menu_items.append(pystray.MenuItem("🕑 Last Used Macro", None, enabled=False))
+        menu_items.append(pystray.MenuItem(
+            f"[{last_used_macro[0]}] 📝 {last_used_macro[1]}",
+            None,
+            enabled=False
+        ))
+    
+    # Add window action(s) based on state
+    global window
+    if window and window.state() in ("iconic", "withdrawn"):  # Minimized or hidden
+        menu_items.append(pystray.MenuItem(
+            "🖥️ Restore MacroMouse",
+            restore_window
+        ))
+    else:
+        menu_items.append(pystray.MenuItem(
+            "👁️ Hide MacroMouse",
+            minimize_to_tray
+        ))
+        menu_items.append(pystray.MenuItem(
+            "❌ Close MacroMouse",
+            close_macromouse_from_tray
+        ))
+    
+    return pystray.Menu(*menu_items)
+
+def close_macromouse_from_tray():
+    """Close the application from the system tray."""
+    global window, tray_icon, _temp_icon_path
+    
+    # Log the closure
+    log_message("Application closed from system tray.")
+    log_message("="*20 + " MacroMouse Session End " + "="*20 + "\n")
+    
+    # Clean up the temporary icon file if it exists
+    if _temp_icon_path and os.path.exists(_temp_icon_path):
+        try:
+            os.remove(_temp_icon_path)
+        except Exception as e:
+            log_message(f"Error removing temporary icon file: {e}")
+    
+    # Stop the tray icon first
+    if tray_icon:
+        try:
+            tray_icon.stop()
+        except Exception as e:
+            log_message(f"Error stopping tray icon: {e}")
+        tray_icon = None
+    
+    # Then destroy the window
+    if window:
+        try:
+            window.quit()  # Stop the mainloop
+            window.destroy()  # Destroy the window
+        except Exception as e:
+            log_message(f"Error destroying window: {e}")
+        window = None
+    
+    # Force exit the application
+    sys.exit(0)
+
+def on_tray_macro_click(icon, item, category, name):
+    """Handle clicking a macro in the tray menu. Always reload macro data and show a sleek popup."""
+    data = load_macro_data()
+    macro_id = None
+    for mid, macro in data["macros"].items():
+        cat_id = macro["category_id"]
+        cat_name = data["categories"].get(cat_id, {}).get("name", "Uncategorized")
+        if cat_name == category and macro["name"] == name:
+            macro_id = mid
+            break
+    if macro_id:
+        macro_content = data["macros"][macro_id]["content"]
+        pyperclip.copy(macro_content)
+        show_tray_macro_popup(f"{name} ({category})", macro_content)
+        macro_usage_counts[(category, name)] = macro_usage_counts.get((category, name), 0) + 1
+        save_usage_counts()
+        update_last_used_macro(category, name)
+    else:
+        show_tray_macro_popup(f"Macro Not Found", f"Macro '{name}' in '{category}' not found.")
+
+def restore_window():
+    """Restore the main window and update the tray menu."""
+    global window, tray_icon
+    if window:
+        window.deiconify()
+        window.state('normal')
+        window.lift()
+        window.focus_force()
+    if tray_icon:
+        tray_icon.menu = create_tray_menu()
+
+def minimize_to_tray():
+    """Minimize the window to system tray and update the tray menu."""
+    global window, tray_icon
+    if window:
+        window.withdraw()  # Hide the window completely
+        if not tray_icon:
+            icon = get_tray_icon()
+            tray_icon = pystray.Icon("MacroMouse", icon, "MacroMouse", create_tray_menu())
+            threading.Thread(target=tray_icon.run, daemon=True).start()
+        else:
+            tray_icon.menu = create_tray_menu()
+
+def update_last_used_macro(category, name):
+    """Update the last used macro."""
+    global last_used_macro
+    last_used_macro = (category, name)
+    if tray_icon:
+        tray_icon.menu = create_tray_menu()
+
+def show_tray_macro_popup(macro_name, macro_content):
+    """Show a sleek, always-on-top popup for tray macro actions."""
+    popup = ctk.CTkToplevel()
+    popup.title(f"Macro: {macro_name}")
+    popup.geometry("420x220")
+    popup.resizable(False, False)
+    popup.attributes("-topmost", True)
+    popup.overrideredirect(True)  # Remove window border
+    
+    # Main frame with dark background
+    main_frame = ctk.CTkFrame(popup, fg_color="#181C22", corner_radius=12)
+    main_frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+    # Title bar
+    title_frame = ctk.CTkFrame(main_frame, fg_color="#23272E", height=36, corner_radius=12)
+    title_frame.pack(fill="x", side="top")
+    title_label = ctk.CTkLabel(title_frame, text=macro_name, font=("Segoe UI", 14, "bold"), text_color="white")
+    title_label.pack(side="left", padx=(14, 0), pady=8)
+    close_btn = ctk.CTkButton(title_frame, text="✕", width=32, fg_color="#23272E", text_color="white", hover_color="#B22222", command=popup.destroy)
+    close_btn.pack(side="right", padx=8, pady=4)
+
+    # Macro content
+    content_frame = ctk.CTkFrame(main_frame, fg_color="#181C22")
+    content_frame.pack(fill="both", expand=True, padx=12, pady=(8, 12))
+    content_box = ctk.CTkTextbox(content_frame, height=80, font=("Consolas", 11), wrap="word")
+    content_box.insert("1.0", macro_content)
+    content_box.configure(state="disabled")
+    content_box.pack(fill="both", expand=True)
+
+    # OK button
+    ok_btn = ctk.CTkButton(main_frame, text="OK", command=popup.destroy, width=100)
+    ok_btn.pack(pady=(0, 10))
+
+    # Center the popup on the screen
+    popup.update_idletasks()
+    width = popup.winfo_width()
+    height = popup.winfo_height()
+    x = (popup.winfo_screenwidth() // 2) - (width // 2)
+    y = (popup.winfo_screenheight() // 2) - (height // 2)
+    popup.geometry(f"{width}x{height}+{x}+{y}")
+    popup.focus_force()
+    popup.wait_window()
+
+def set_window_icon(window):
+    global _temp_icon_path
+    icon_path = load_config().get('icon_path')
+    if icon_path and os.path.exists(icon_path):
+        try:
+            window.iconbitmap(icon_path)
+            return
+        except Exception:
+            pass
+    # Fallback: create a temp .ico from the default icon
+    try:
+        default_icon = get_tray_icon()
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.ico')
+        default_icon.save(tmp, format='ICO')
+        tmp_path = tmp.name
+        tmp.close()
+        _temp_icon_path = tmp_path  # Prevent deletion
+        window.iconbitmap(tmp_path)
+    except Exception as e:
+        print(f"Failed to set icon: {e}")
+        pass
 
 if __name__ == "__main__":
     if sys.platform.startswith('win32'):

@@ -1,6 +1,6 @@
 {
     "png to ICO creation": {
-        "BG Color": true,
+        "BG Color": false,
         "Model Name": false,
         "Transparency Level": false
     }
