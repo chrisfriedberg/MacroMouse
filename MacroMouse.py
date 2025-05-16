@@ -1188,7 +1188,7 @@ def create_category_window(update_list_func, category_dropdown):
     """Create and show the category management window."""
     category_window = ctk.CTkToplevel()
     category_window.title("Manage Macro Categories")
-    category_window.geometry("506x400")  # 10% wider than 460
+    category_window.geometry("586x400")  # Increased width by another 50px
     category_window.grab_set()
 
     # --- HEADER TOOLBAR ---
@@ -1262,9 +1262,11 @@ def create_category_window(update_list_func, category_dropdown):
                 frame, 
                 text=label_text, 
                 font=("Segoe UI", 13),
-                text_color="#00BFFF" if cat_data["name"] == "Uncategorized" else ("#FF6347" if cat_data.get("hidden", False) else "white")
+                text_color="#00BFFF" if cat_data["name"] == "Uncategorized" else ("#FF6347" if cat_data.get("hidden", False) else "white"),
+                anchor="w",
+                justify="left"
             )
-            label.pack(side="left", padx=(10, 32))
+            label.pack(side="left", padx=(10, 32), fill="x", expand=True)
             
             if cat_data["name"] != "Uncategorized":
                 btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
@@ -1779,9 +1781,11 @@ def create_macro_window():
                 text=f"{cat}:",
                 font=("Segoe UI", 11),
                 text_color="gray",
-                width=100  # Fixed width for category label
+                width=100,
+                anchor="w",
+                justify="left"
             )
-            cat_label.pack(side="left", padx=(5, 0))
+            cat_label.pack(side="left", padx=(5, 0), fill="x")
             
             # Add macro button
             macro_button = ctk.CTkButton(
