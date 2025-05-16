@@ -141,7 +141,8 @@ def load_macro_data():
                     "name": cat_elem.find("name").text,
                     "created": cat_elem.find("created").text,
                     "modified": cat_elem.find("modified").text,
-                    "description": cat_elem.find("description").text if cat_elem.find("description") is not None else ""
+                    "description": cat_elem.find("description").text if cat_elem.find("description") is not None else "",
+                    "hidden": (cat_elem.find("hidden").text.lower() == "true") if cat_elem.find("hidden") is not None else False
                 }
         
         # Load macros
@@ -216,6 +217,8 @@ def save_macro_data(data, category_order=None):
             modified_elem.text = cat_data["modified"]
             desc_elem = ET.SubElement(cat_elem, "description")
             desc_elem.text = cat_data.get("description", "")
+            hidden_elem = ET.SubElement(cat_elem, "hidden")
+            hidden_elem.text = str(cat_data.get("hidden", False))
         
         macros_elem = ET.SubElement(root, "macros")
         for macro_id, macro_data in data["macros"].items():
@@ -327,7 +330,11 @@ def get_macros_for_ui(selected_category="All", search_term=""):
     search_term = search_term.lower().strip()
     for macro_id, macro in data["macros"].items():
         cat_id = macro["category_id"]
-        cat_name = data["categories"].get(cat_id, {}).get("name", "Uncategorized")
+        cat_data = data["categories"].get(cat_id, {})
+        cat_name = cat_data.get("name", "Uncategorized")
+        # Skip macros in hidden categories
+        if cat_data.get("hidden", False):
+            continue
         name = macro["name"]
         content = macro["content"]
         if selected_category != "All" and cat_name != selected_category:
@@ -364,10 +371,10 @@ def get_macros_for_ui(selected_category="All", search_term=""):
     return macros
 
 def get_categories():
-    """Return a sorted list of categories from the data."""
     data = load_macro_data()
     order = data.get("category_order", list(data["categories"].keys()))
-    names = [data["categories"][cid]["name"] for cid in order if cid in data["categories"]]
+    # Only include categories that are not hidden
+    names = [data["categories"][cid]["name"] for cid in order if cid in data["categories"] and not data["categories"][cid].get("hidden", False)]
     return ["All"] + names
 
 # --- FILE OPERATIONS ---
@@ -1248,13 +1255,16 @@ def create_category_window(update_list_func, category_dropdown):
             frame.pack(fill="x", pady=(8 if idx == 1 else 4, 4), padx=2)  # Spacer after "Uncategorized"
             
             # Category label with style
+            label_text = cat_data["name"]
+            if cat_data.get("hidden", False):
+                label_text += "  [Hidden]"
             label = ctk.CTkLabel(
                 frame, 
-                text=cat_data["name"], 
-                font=("Segoe UI", 13),  # <-- removed "bold"
-                text_color="#00BFFF" if cat_data["name"] == "Uncategorized" else "white"
+                text=label_text, 
+                font=("Segoe UI", 13),
+                text_color="#00BFFF" if cat_data["name"] == "Uncategorized" else ("#FF6347" if cat_data.get("hidden", False) else "white")
             )
-            label.pack(side="left", padx=(10, 32))  # <-- 32px right padding for button wall
+            label.pack(side="left", padx=(10, 32))
             
             if cat_data["name"] != "Uncategorized":
                 btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
@@ -1262,6 +1272,30 @@ def create_category_window(update_list_func, category_dropdown):
                 
                 btn_style = {"font": ("Segoe UI", 11, "bold"), "text_color": "white"}
                 
+                # Hide/Unhide button
+                def make_hide_unhide_handler(cid, currently_hidden):
+                    def handler():
+                        action = "Unhide" if currently_hidden else "Hide"
+                        if not currently_hidden:
+                            # Show warning popup
+                            if not styled_hide_category_confirm(frame):
+                                return
+                        categories[cid]["hidden"] = not currently_hidden
+                        save_macro_data(data, category_order)
+                        update_category_list()
+                        if category_dropdown:
+                            category_dropdown.configure(values=get_categories())
+                            category_dropdown.set("All")
+                        update_list_func()
+                    return handler
+                hide_btn = ctk.CTkButton(
+                    btn_frame,
+                    text="Unhide" if cat_data.get("hidden", False) else "Hide",
+                    width=60,
+                    **btn_style,
+                    command=make_hide_unhide_handler(cat_id, cat_data.get("hidden", False))
+                )
+                hide_btn.pack(side="left", padx=(0, 6))
                 # Edit button
                 edit_btn = ctk.CTkButton(btn_frame, text="Edit", width=50, **btn_style, command=lambda c=cat_id: edit_category_popup(c, update_category_list, update_list_func, category_dropdown))
                 edit_btn.pack(side="left", padx=(0, 6))
@@ -1735,17 +1769,43 @@ def create_macro_window():
             highlight_selected_item(None)
             return
         for cat, name, content in macros:
+            # Create a frame to hold both category label and macro button
+            macro_frame = ctk.CTkFrame(macro_list_frame, fg_color="transparent")
+            macro_frame.pack(fill="x", pady=(0, 1), padx=1)
+            
+            # Add category label
+            cat_label = ctk.CTkLabel(
+                macro_frame,
+                text=f"{cat}:",
+                font=("Segoe UI", 11),
+                text_color="gray",
+                width=100  # Fixed width for category label
+            )
+            cat_label.pack(side="left", padx=(5, 0))
+            
+            # Add macro button
             macro_button = ctk.CTkButton(
-                macro_list_frame, text=name, anchor="w", fg_color="transparent", hover=False, border_width=0,
+                macro_frame,
+                text=name,
+                anchor="w",
+                fg_color="transparent",
+                hover=False,
+                border_width=0,
                 text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"],
                 command=lambda c=cat, n=name: on_macro_select(c, n)
             )
-            macro_button.pack(fill="x", pady=(0, 1), padx=1)
+            macro_button.pack(side="left", fill="x", expand=True)
+            
             # Add double-click event for copy
             def on_double_click(event, c=cat, n=name):
                 copy_macro((c, n))
             macro_button.bind("<Double-Button-1>", on_double_click)
+            
+            # Add both widgets to the list for tracking
+            macro_list_items.append(macro_frame)
+            macro_list_items.append(cat_label)
             macro_list_items.append(macro_button)
+            
         if selected:
             on_macro_select(*selected)
 
@@ -1758,13 +1818,22 @@ def create_macro_window():
 
     def highlight_selected_item(selected_key):
         selected_color = ctk.ThemeManager.theme["CTkButton"]["hover_color"]
+        # First, reset all frames and buttons to default state
         for item_widget in macro_list_items:
-            if isinstance(item_widget, ctk.CTkButton):
+            if isinstance(item_widget, ctk.CTkFrame):
+                item_widget.configure(fg_color="transparent")
+            elif isinstance(item_widget, ctk.CTkButton):
                 item_widget.configure(border_width=0)
+        
+        # Then highlight only the selected item
         if selected_key and isinstance(selected_key, tuple):
             for item_widget in macro_list_items:
                 if isinstance(item_widget, ctk.CTkButton) and item_widget.cget("text") == selected_key[1]:
                     item_widget.configure(border_width=1, border_color=selected_color)
+                    # Also highlight the parent frame
+                    parent = item_widget.master
+                    if isinstance(parent, ctk.CTkFrame):
+                        parent.configure(fg_color=selected_color)
                     break
 
     def on_macro_select(category, name):
@@ -2516,6 +2585,21 @@ def load_leave_raw_preferences():
             macro_leave_raw_preferences.update(json.load(f))
     except Exception as e:
         log_message(f"Error loading 'Leave Raw' preferences: {e}")
+
+# Replace the styled_askyesno call in the hide/unhide handler with a custom messagebox with button text and tooltips
+# Add this helper function near the other styled messageboxes:
+def styled_hide_category_confirm(parent=None):
+    return create_styled_messagebox(
+        "Hide Category",
+        "This will hide all macros relating to this category until you revert this status.",
+        parent=parent,
+        buttons=[
+            ("Yes", True),
+            ("Cancel", False)
+        ],
+        # Tooltips are not natively supported in CTkButton, but you can add a label below or use a custom widget if needed
+    )
+# In the make_hide_unhide_handler, replace styled_askyesno with styled_hide_category_confirm and add tooltips as label below buttons if desired.
 
 if __name__ == "__main__":
     if sys.platform.startswith('win32'):
