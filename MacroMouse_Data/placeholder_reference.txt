@@ -16,6 +16,19 @@ This file serves as a reference for placeholders used in your macros.
 {{contact_email}} - Contact email address
 {{contact_phone}} - Contact phone number
 
+## Auto replacements that will autofill when inputted
+<datetime> → 2025-05-23 13:07:42   // Full date and time
+<date>     → 2025-05-23            // Current date
+<time>     → 13:07:42              // Current time
+<year>     → 2025                  // 4-digit year
+<month>    → 05                    // 2-digit month
+<day>      → 23                    // 2-digit day
+<hour>     → 13                    // 24-hour format
+<minute>   → 07                    // 2-digit minute
+<second>   → 42                    // 2-digit second
+
+
+
 ## Email Templates Example
 
 "Hello {{customer_name}},

@@ -431,13 +431,36 @@ def show_copied_popup(parent, macro_name):
     y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (popup.winfo_height() // 2)
     popup.geometry(f"+{x}+{y}")
 
+def apply_dynamic_placeholders(text: str) -> str:
+    """Replaces known dynamic placeholders in the input text with current date/time values."""
+    placeholder_map = {
+        "<datetime>": lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "<date>": lambda: datetime.now().strftime("%Y-%m-%d"),
+        "<time>": lambda: datetime.now().strftime("%H:%M:%S"),
+        "<year>": lambda: datetime.now().strftime("%Y"),
+        "<month>": lambda: datetime.now().strftime("%m"),
+        "<day>": lambda: datetime.now().strftime("%d"),
+        "<hour>": lambda: datetime.now().strftime("%H"),
+        "<minute>": lambda: datetime.now().strftime("%M"),
+        "<second>": lambda: datetime.now().strftime("%S"),
+    }
+
+    for placeholder, func in placeholder_map.items():
+        if placeholder in text:
+            text = text.replace(placeholder, func())
+
+    return text
+
 def copy_macro(macro_key):
     """Copies the content of the specified macro to the clipboard."""
     if macro_key and macro_key in macros_dict:
         try:
             content = macros_dict[macro_key]
             
-            # Check for {{tag}} placeholders and prompt for input
+            # First, apply dynamic placeholders
+            content = apply_dynamic_placeholders(content)
+            
+            # Then check for {{tag}} placeholders and prompt for input
             pattern = r'\{\{(.*?)\}\}' 
             placeholders = set(re.findall(pattern, content))
             
@@ -454,11 +477,7 @@ def copy_macro(macro_key):
                 for ph, value in inputs.items():
                     if value:  # Only replace if a value was provided
                         content = content.replace(f"{{{{{ph}}}}}", value)
-                
-                # Do not show warning for unresolved tags if any are due to 'Leave Raw'
-                # We skip the unresolved tags dialog entirely since 'Leave Raw' handles it
             
-            # At this point, if we've made it here, user has confirmed all dialogs
             # Ensure we're copying plain text
             pyperclip.copy(content)
             log_message(f"Copied macro '{macro_key[1]}' to clipboard.")
@@ -2558,24 +2577,44 @@ def show_placeholder_help():
     help_text = """
     # Dynamic Placeholders
     
-    MacroMouse supports dynamic placeholders in your macros using the {{tag}} syntax.
+    MacroMouse supports two types of placeholders in your macros:
     
-    ## How It Works
+    1. User Input Placeholders: {{tag}} - Prompts for user input
+    2. Dynamic Time Placeholders: <tag> - Automatically fills with current date/time
     
-    1. When creating or editing a macro, include placeholders in double curly braces:
-       Example: "Hello {{name}}, your order #{{order_number}} has been processed."
+    ## User Input Placeholders
     
-    2. When you copy the macro:
-       - MacroMouse will detect all {{tag}} placeholders
-       - For each unique tag, you'll be prompted to enter a value
-       - All instances of that tag will be replaced with your input
+    When creating or editing a macro, include placeholders in double curly braces:
+    Example: "Hello {{name}}, your order #{{order_number}} has been processed."
+    
+    When you copy the macro:
+    - MacroMouse will detect all {{tag}} placeholders
+    - For each unique tag, you'll be prompted to enter a value
+    - All instances of that tag will be replaced with your input
+    
+    ## Dynamic Time Placeholders
+    
+    Use these special tags to automatically insert current date/time values:
+    
+    <datetime> - Current date and time (YYYY-MM-DD HH:MM:SS)
+    <date> - Current date (YYYY-MM-DD)
+    <time> - Current time (HH:MM:SS)
+    <year> - Current year (YYYY)
+    <month> - Current month (MM)
+    <day> - Current day (DD)
+    <hour> - Current hour (HH)
+    <minute> - Current minute (MM)
+    <second> - Current second (SS)
+    
+    Example: "Report generated on <datetime> by {{user_name}}"
     
     ## Tips
     
-    - Use descriptive placeholder names like {{customer_name}}, {{date}}, etc.
-    - You can use the Reference File to keep notes on your placeholder naming system
-    - The same placeholder used multiple times will be replaced with the same value
-    - Empty placeholders will remain as {{placeholder}} in the final text
+    - You can mix both types of placeholders in the same macro
+    - Dynamic time placeholders are replaced automatically
+    - User input placeholders will still prompt for values
+    - Empty user input placeholders will remain as {{placeholder}} in the final text
+    - Use the Reference File to keep notes on your placeholder naming system
     
     ## Reference File
     
@@ -2585,19 +2624,6 @@ def show_placeholder_help():
     - Access your reference file quickly via:
       • File → Reference File → View Reference File
       • The "View Reference" button next to the preview pane
-    
-    ## Example
-    
-    Original macro:
-    "Hi {{customer}}, this is {{agent_name}} following up on your {{service}} inquiry from {{date}}."
-    
-    When copied, you'll be prompted for:
-    - customer
-    - agent_name
-    - service
-    - date
-    
-    And the resulting text will have all placeholders replaced with your entries.
     """
     
     help_label = ctk.CTkLabel(

@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
-<macro_data><version>1.0</version><category_order>CAT_EA00D71C,CAT_39F60463,CAT_2BBEE7D2</category_order><categories><category id="CAT_EA00D71C"><name>Uncategorized</name><created>2025-05-12T12:48:02.181062</created><modified>2025-05-12T12:48:02.181062</modified><description /><hidden>False</hidden></category><category id="CAT_39F60463"><name>GPT-Byte</name><created>2025-05-12T12:48:30.503833</created><modified>2025-05-12T12:48:30.503833</modified><description /><hidden>True</hidden></category><category id="CAT_2BBEE7D2"><name>Terminal Commands</name><created>2025-05-12T15:55:53.162465</created><modified>2025-05-16T10:48:08.577557</modified><description>These are all cmds byte and I work on</description><hidden>False</hidden></category></categories><macros><macro id="MACRO_5026578D"><name>png to ICO creation</name><category_id>CAT_39F60463</category_id><content>Hey there {{Model Name}},
+<macro_data><version>1.0</version><category_order>CAT_EA00D71C,CAT_39F60463,CAT_2BBEE7D2,CAT_F5BB3D10</category_order><categories><category id="CAT_EA00D71C"><name>Uncategorized</name><created>2025-05-12T12:48:02.181062</created><modified>2025-05-12T12:48:02.181062</modified><description /><hidden>False</hidden></category><category id="CAT_39F60463"><name>GPT-Byte</name><created>2025-05-12T12:48:30.503833</created><modified>2025-05-12T12:48:30.503833</modified><description /><hidden>False</hidden></category><category id="CAT_2BBEE7D2"><name>Terminal CMDs</name><created>2025-05-12T15:55:53.162465</created><modified>2025-05-17T23:23:07.963977</modified><description>These are all cmds byte and I work on</description><hidden>False</hidden></category><category id="CAT_F5BB3D10"><name>Ai Rules</name><created>2025-05-16T22:50:08.417438</created><modified>2025-05-16T22:50:08.417438</modified><description /><hidden>False</hidden></category></categories><macros><macro id="MACRO_5026578D"><name>png to ICO creation</name><category_id>CAT_39F60463</category_id><content>Hey there {{Model Name}},
 
 Please remember when you create PNGs for me:
-1. Transparency Preparation:  Do not make the background color the same or similar to the foreground without asking me.  The reason is that it becomes hard to use a tool to make the background {{Transparency Level}}  
+1. Transparency Preparation:  Do not make the background color the same or similar to the foreground without asking me.  The reason is that it becomes hard to use a tool to make the background transparent
 Not every time will this apply but if you want to create similar colors ask me so I can understand your vision.
 Please make the color {{BG Color}} which should stand out behind the icon.
 
@@ -12,6 +12,111 @@ Please make the color {{BG Color}} which should stand out behind the icon.
 
 4. Make sure it's rated in size and resolution for windows 11 and beyond.
 
-5. DO NOT MAKE IT TRANSPARENT.  I will do that myself if needed.</content><created>2025-05-12T14:28:09.000760</created><modified>2025-05-13T18:07:58.430540</modified><version>8</version></macro><macro id="MACRO_4BE80708"><name>Folder Contents (Show all)</name><category_id>CAT_2BBEE7D2</category_id><content>gci -Recurse -File | % { $_.FullName }
+5. DO NOT MAKE IT TRANSPARENT.  I will do that myself if needed.</content><created>2025-05-12T14:28:09.000760</created><modified>2025-05-17T16:18:08.299945</modified><version>9</version></macro><macro id="MACRO_4BE80708"><name>Folder Contents (Show all)</name><category_id>CAT_2BBEE7D2</category_id><content>gci -Recurse -File | % { $_.FullName }
 or
-Get-ChildItem -Recurse | Select-Object FullName</content><created>2025-05-12T15:56:01.928042</created><modified>2025-05-12T16:05:18.323515</modified><version>2</version></macro><macro id="MACRO_6F2752AA"><name>Remove-Item (PowerShell)</name><category_id>CAT_2BBEE7D2</category_id><content>del C:\Your\File.txt</content><created>2025-05-13T00:46:32.996737</created><modified>2025-05-13T00:46:32.996737</modified><version>1</version></macro><macro id="MACRO_71217B85"><name>Copy-Item (PowerShell)</name><category_id>CAT_2BBEE7D2</category_id><content>copy C:\From\File.txt C:\To\</content><created>2025-05-13T00:47:23.035412</created><modified>2025-05-13T00:47:23.035412</modified><version>1</version></macro><macro id="MACRO_0E62AD5C"><name>Add a folder to system PATH (requires restart of terminal)</name><category_id>CAT_2BBEE7D2</category_id><content>setx PATH "%PATH%;C:\Your\NewPath"</content><created>2025-05-13T00:48:11.177677</created><modified>2025-05-13T00:48:11.177677</modified><version>1</version></macro><macro id="MACRO_6295B8AF"><name>set (CMD) / $env:PATH (PowerShell)</name><category_id>CAT_2BBEE7D2</category_id><content>set (CMD) / $env:PATH</content><created>2025-05-13T00:49:27.455518</created><modified>2025-05-13T00:49:27.455518</modified><version>1</version></macro></macros></macro_data>
+Get-ChildItem -Recurse | Select-Object FullName
+
+Example: Get-ChildItem "C:\Users\chris\.llama\checkpoints\Llama-4-Maverick-17B-128E-Instruct-fp8" | Select-Object Name, Length | Format-Table -AutoSize</content><created>2025-05-12T15:56:01.928042</created><modified>2025-05-18T10:26:42.767340</modified><version>3</version></macro><macro id="MACRO_6F2752AA"><name>Remove-Item (PowerShell)</name><category_id>CAT_2BBEE7D2</category_id><content>del C:\Your\File.txt</content><created>2025-05-13T00:46:32.996737</created><modified>2025-05-13T00:46:32.996737</modified><version>1</version></macro><macro id="MACRO_71217B85"><name>Copy-Item (PowerShell)</name><category_id>CAT_2BBEE7D2</category_id><content>copy C:\From\File.txt C:\To\</content><created>2025-05-13T00:47:23.035412</created><modified>2025-05-13T00:47:23.035412</modified><version>1</version></macro><macro id="MACRO_0E62AD5C"><name>Add a folder to system PATH (requires restart of terminal)</name><category_id>CAT_2BBEE7D2</category_id><content>setx PATH "%PATH%;C:\Your\NewPath"</content><created>2025-05-13T00:48:11.177677</created><modified>2025-05-13T00:48:11.177677</modified><version>1</version></macro><macro id="MACRO_6295B8AF"><name>set (CMD) / $env:PATH (PowerShell)</name><category_id>CAT_2BBEE7D2</category_id><content>set (CMD) / $env:PATH</content><created>2025-05-13T00:49:27.455518</created><modified>2025-05-13T00:49:27.455518</modified><version>1</version></macro><macro id="MACRO_8A7CD44E"><name>Cursor or Code/Logic Edits by Ai</name><category_id>CAT_F5BB3D10</category_id><content>⚠️ RULES OF ENGAGEMENT ⚠️
+
+&lt;today&gt;
+
+- Do NOT add or remove any imports or packages.
+- Do NOT modify unrelated functions, classes, or logic.
+- Do NOT make architecture-level changes.
+- If something feels like it *should* be changed, ASK FIRST.
+- Your ONLY job is: [INSERT SPECIFIC TASK HERE]</content><created>2025-05-16T22:51:11.088640</created><modified>2025-05-23T12:19:27.680339</modified><version>2</version></macro><macro id="MACRO_03BA9AA4"><name>Llama Stack Help</name><category_id>CAT_2BBEE7D2</category_id><content>llama stack --help</content><created>2025-05-17T22:26:44.624995</created><modified>2025-05-17T22:26:44.624995</modified><version>1</version></macro><macro id="MACRO_CA227F47"><name>Maverick - Text To Vector Requirements</name><category_id>CAT_F5BB3D10</category_id><content>Hi Gemini.
+
+Please create a txt to vector file script for me. Write it in Pyside6 looking nice with an upload button where I choose the file and output desitnation where I choose the new file to go. Add perfect error handling so I know the exact problem should any issues arise.
+
+
+
+Requirements:
+
+
+
+# LOCAL EMBEDDING INTEGRATION INSTRUCTIONS FOR MAVERICK
+
+
+
+Overview:
+
+Build a local embedding system using a sentence transformer model.
+
+Input: .txt file (UTF-8), containing plain English text.
+
+Output: 1536-dimension float32 vector packed as a binary BLOB.
+
+Target: SQLite DB (themind.db), table = documents or claim_knowledge.
+
+
+
+Dependencies:
+
+- Python 3.12
+
+- sentence-transformers
+
+- numpy
+
+- struct
+
+- sqlite3
+
+
+
+Model Recommendation:
+
+- "all-MiniLM-L6-v2" (384D, fast) → NOT compatible unless upsampled.
+
+- "bge-base-en" or "bge-large-en" (768D or 1024D) → NOT compatible unless upsampled.
+
+- You must choose or fine-tune a local model that outputs 1536-dimension vectors to match schema.
+
+
+
+Process:
+
+1. Load .txt file as UTF-8 string.
+2. Feed text into embedding model locally using SentenceTransformer.encode().
+3. Verify vector length is exactly 1536.
+4. Convert vector to float32 array.
+5. Pack with struct.pack('%sf' % len(vector), *vector) into binary blob.
+6. Insert into SQLite DB with corresponding metadata.
+
+Schema Requirements (SQLite):
+- name (text)
+- content (text)
+- vector (BLOB, float32 packed)
+- source (text)
+- tags (text)
+- timestamp (optional)
+
+
+Sample Insert Logic:
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import sqlite3
+import struct
+
+model = SentenceTransformer("your-1536d-local-model")
+text = open("input.txt", "r", encoding="utf-8").read()
+vector = model.encode(text)
+assert len(vector) == 1536, "Vector length mismatch"
+blob = sqlite3.Binary(struct.pack(f"{len(vector)}f", *vector))
+conn = sqlite3.connect("C:\\TheMind\\themind.db")
+cursor = conn.cursor()
+cursor.execute("""
+INSERT INTO documents (name, content, vector, source, tags)
+VALUES (?, ?, ?, ?, ?)
+""", ("Document Name", text, blob, "local_embed", "tag1,tag2"))
+conn.commit()
+conn.close()
+Constraints:
+- Model must output 1536D vectors. No reformatting fallback allowed.
+- Text must be readable English, UTF-8, &lt; 8192 tokens.
+- Do not reuse OpenAI or remote APIs.
+- Do not inject pre-packed vectors from incompatible models.
+
+
+
+This is a cold-start, local-only embedding stack engineered to match Maverick’s existing vector schema and cosine similarity operations.</content><created>2025-05-18T01:22:59.257715</created><modified>2025-05-18T01:22:59.257715</modified><version>1</version></macro><macro id="MACRO_722BF7C2"><name>Clear pip cache</name><category_id>CAT_2BBEE7D2</category_id><content>pip cache purge</content><created>2025-05-18T10:16:25.755856</created><modified>2025-05-18T10:16:25.755856</modified><version>1</version></macro></macros></macro_data>
