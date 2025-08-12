@@ -1,5 +1,6 @@
-# <img width="50" height="50" alt="MMouseFAV" src="https://github.com/user-attachments/assets/45244a2e-d909-4722-8956-7da214cf35a0" />MacroMouse  <img width="50" height="50" alt="MMouseFAV" src="https://github.com/user-attachments/assets/45244a2e-d909-4722-8956-7da214cf35a0" />
-**A Powerful Desktop Macro Management Tool**  
+<p align="center"> <img width="50" height="50" alt="MMouseFAV" src="https://github.com/user-attachments/assets/45244a2e-d909-4722-8956-7da214cf35a0" /> MacroMouse  <img width="50" height="50" alt="MMouseFAV" src="https://github.com/user-attachments/assets/45244a2e-d909-4722-8956-7da214cf35a0" /></p>
+
+A Powerful Desktop Macro Management Tool
 
 MacroMouse is a feature-rich Python desktop application for creating, organizing, and executing text macros with ease. It’s built with [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) for a modern UI and supports advanced placeholder handling, dynamic values, usage tracking, category management, and data backup/restore.  
 
