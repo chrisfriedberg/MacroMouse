@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
     "Terminal CMDs|||NEXT.js: Run Local DEV": 20,
     "Terminal CMDs|||Firebase: Push Build to Server": 20,
     "GPT-Byte|||png to ICO creation": 14,
@@ -15,4 +16,11 @@
     "Firebase|||Logs: Function logs": 3,
     "Firebase|||Firebase: DEV - Deploy Rules (ONLY)": 4,
     "Firebase|||Firebase: DEV - Deploy Functions": 8
+=======
+    "GPT-Byte|||png to ICO creation": 13,
+    "Terminal CMDs|||Copy-Item (PowerShell)": 1,
+    "Test|||Test": 1,
+    "Ai Rules|||Cursor or Code/Logic Edits by Ai": 4,
+    "Terminal CMDs|||Folder Contents (Show all)": 1
+>>>>>>> 8feaeadb454432c5ad0dddb2db5df686c42eafc6
 }
