@@ -1,5 +1,18 @@
 {
-    "GPT-Byte|||png to ICO creation": 11,
-    "Terminal CMDs|||Copy-Item (PowerShell)": 1,
-    "Test|||Test": 1
+    "Terminal CMDs|||NEXT.js: Run Local DEV": 20,
+    "Terminal CMDs|||Firebase: Push Build to Server": 20,
+    "GPT-Byte|||png to ICO creation": 14,
+    "Terminal CMDs|||Browser Console: Monitor network calls (Bytes version)": 6,
+    "Terminal CMDs|||Firebase: Push Fb App Hosting Files": 6,
+    "Terminal CMDs|||Firestore: Emulator Start": 22,
+    "Ai Rules For Coding|||cursor - protect rando chngs & incorrect assumptions": 7,
+    "Ai Rules For Coding|||Cursor:  Warning to remember the rules": 8,
+    "Terminal CMDs|||Firebase: Deploy Rules to DEV": 2,
+    "Ai Rules For Coding|||Cursor 1- protect rando chngs & incorrect assumptions": 1,
+    "Terminal CMDs|||Firebase: DEV - Deploy Rules (ONLY)": 4,
+    "Terminal CMDs|||Windows: Indexing Query on specific folder": 1,
+    "Terminal CMDs|||Firebase: DEV - Deploy Functions": 3,
+    "Firebase|||Logs: Function logs": 3,
+    "Firebase|||Firebase: DEV - Deploy Rules (ONLY)": 4,
+    "Firebase|||Firebase: DEV - Deploy Functions": 8
 }

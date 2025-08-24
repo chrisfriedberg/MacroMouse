@@ -16,6 +16,18 @@ This file serves as a reference for placeholders used in your macros.
 {{contact_email}} - Contact email address
 {{contact_phone}} - Contact phone number
 
+## Dynamic Time Placeholders
+
+<datetime> - Current date and time (YYYY-MM-DD HH:MM:SS)
+<date> - Current date (YYYY-MM-DD)
+<time> - Current time (HH:MM:SS)
+<year> - Current year (YYYY)
+<month> - Current month (MM)
+<day> - Current day (DD)
+<hour> - Current hour (HH)
+<minute> - Current minute (MM)
+<second> - Current second (SS)
+
 ## Email Templates Example
 
 "Hello {{customer_name}},

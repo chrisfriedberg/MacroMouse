@@ -16,6 +16,8 @@ from PIL import Image, ImageDraw
 import threading
 import functools
 import tempfile
+import requests
+from google.cloud import storage
 
 # --- GLOBALS ---
 log_file_path = None
@@ -80,6 +82,18 @@ def save_config(config_data):
         return True
     except Exception as e:
         log_message(f"Error saving config: {e}")
+        return False
+
+def save_config_to_path(config_data, file_path):
+    """Save configuration to a specific file path"""
+    if not file_path:
+        return False
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(config_data, f, indent=4)
+        return True
+    except Exception as e:
+        log_message(f"Error saving config to {file_path}: {e}")
         return False
 
 def change_app_icon(window):
@@ -431,13 +445,36 @@ def show_copied_popup(parent, macro_name):
     y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (popup.winfo_height() // 2)
     popup.geometry(f"+{x}+{y}")
 
+def apply_dynamic_placeholders(text: str) -> str:
+    """Replaces known dynamic placeholders in the input text with current date/time values."""
+    placeholder_map = {
+        "<datetime>": lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "<date>": lambda: datetime.now().strftime("%Y-%m-%d"),
+        "<time>": lambda: datetime.now().strftime("%H:%M:%S"),
+        "<year>": lambda: datetime.now().strftime("%Y"),
+        "<month>": lambda: datetime.now().strftime("%m"),
+        "<day>": lambda: datetime.now().strftime("%d"),
+        "<hour>": lambda: datetime.now().strftime("%H"),
+        "<minute>": lambda: datetime.now().strftime("%M"),
+        "<second>": lambda: datetime.now().strftime("%S"),
+    }
+
+    for placeholder, func in placeholder_map.items():
+        if placeholder in text:
+            text = text.replace(placeholder, func())
+
+    return text
+
 def copy_macro(macro_key):
     """Copies the content of the specified macro to the clipboard."""
     if macro_key and macro_key in macros_dict:
         try:
             content = macros_dict[macro_key]
             
-            # Check for {{tag}} placeholders and prompt for input
+            # First, apply dynamic placeholders
+            content = apply_dynamic_placeholders(content)
+            
+            # Then check for {{tag}} placeholders and prompt for input
             pattern = r'\{\{(.*?)\}\}' 
             placeholders = set(re.findall(pattern, content))
             
@@ -454,11 +491,7 @@ def copy_macro(macro_key):
                 for ph, value in inputs.items():
                     if value:  # Only replace if a value was provided
                         content = content.replace(f"{{{{{ph}}}}}", value)
-                
-                # Do not show warning for unresolved tags if any are due to 'Leave Raw'
-                # We skip the unresolved tags dialog entirely since 'Leave Raw' handles it
             
-            # At this point, if we've made it here, user has confirmed all dialogs
             # Ensure we're copying plain text
             pyperclip.copy(content)
             log_message(f"Copied macro '{macro_key[1]}' to clipboard.")
@@ -1566,7 +1599,7 @@ def create_macro_window():
     data_file_menu.add_command(label="Back Up Data Files Folder", command=backup_data_files_folder)
     data_file_menu.add_command(label="Restore Data File", command=restore_data_file)
     data_file_menu.add_separator()
-    data_file_menu.add_command(label="Show File Paths (Debug)", command=show_file_paths)
+    data_file_menu.add_command(label="Configure File Paths", command=show_file_paths)
     
     file_menu.add_separator()
     file_menu.add_command(label="Change App Icon", command=lambda: change_app_icon(window))
@@ -1581,6 +1614,8 @@ def create_macro_window():
     menubar.add_cascade(label="Tools", menu=tools_menu)
     tools_menu.add_command(label="Macro Categories", command=lambda: create_category_window(update_list, category_dropdown))
     tools_menu.add_command(label="Delete All Macro Usage Counts", command=delete_all_usage_counts)
+    tools_menu.add_separator()
+    tools_menu.add_command(label="Cloud Sync", command=show_cloud_sync_dialog)
     # Theme submenu
     theme_menu = tk.Menu(tools_menu, tearoff=0)
     tools_menu.add_cascade(label="Theme", menu=theme_menu)
@@ -1610,6 +1645,7 @@ def create_macro_window():
             messagebox.showerror("Error", "README.md file not found in application directory.")
             
     help_menu.add_command(label="About / Help", command=open_readme)
+    help_menu.add_command(label="About Config", command=show_about_config)
     help_menu.add_command(label="Placeholder References", command=show_placeholder_help)
 
     window.grid_rowconfigure(0, weight=1)
@@ -1945,10 +1981,25 @@ def main():
     app_data_dir = os.path.join(script_dir, "MacroMouse_Data")
     os.makedirs(app_data_dir, exist_ok=True)
     
-    # Set file paths - these are the correct locations
-    macro_data_file_path = os.path.join(app_data_dir, "macros.xml")
-    log_file_path = os.path.join(app_data_dir, "MacroMouse.log")
-    config_file_path = os.path.join(app_data_dir, "config.json")
+    # Set default file paths
+    default_macro_data_file = os.path.join(app_data_dir, "macros.xml")
+    default_log_file = os.path.join(app_data_dir, "MacroMouse.log")
+    default_config_file = os.path.join(app_data_dir, "config.json")
+    
+    # Set config file path first (this needs to be hardcoded initially)
+    config_file_path = default_config_file
+    
+    # Load config and get custom file paths if they exist
+    config = load_config()
+    
+    # Set file paths from config or use defaults
+    macro_data_file_path = config.get('macro_data_file', default_macro_data_file)
+    log_file_path = config.get('log_file', default_log_file)
+    config_file_path = config.get('config_file', default_config_file)
+    
+    # Ensure the config file path is always set correctly
+    if not config.get('config_file'):
+        config_file_path = default_config_file
     
     # Log startup information
     log_message("="*20 + " MacroMouse Session Start " + "="*20)
@@ -1969,7 +2020,6 @@ def main():
     load_leave_raw_preferences()
     
     # Load reference file path from config
-    config = load_config()
     reference_file_path = config.get('reference_file', None)
     if reference_file_path:
         log_message(f"Reference file: {reference_file_path}")
@@ -1982,17 +2032,17 @@ def main():
     # Start the main window
     create_macro_window()
 
-# Add a debugging function to check file paths
+# Add a function to configure file paths
 def show_file_paths():
-    """Display current file paths in a message box for debugging."""
+    """Display and allow editing of file paths with browse functionality."""
     global macro_data_file_path, log_file_path, config_file_path
     
     # Create styled dialog
     paths_dialog = ctk.CTkToplevel()
-    paths_dialog.title("File Paths")
-    paths_dialog.geometry("500x600")  # Doubled the height from 300 to 600
+    paths_dialog.title("File Paths Configuration")
+    paths_dialog.geometry("700x650")
     paths_dialog.grab_set()
-    paths_dialog.resizable(True, True)  # Allow both width and height resizing
+    paths_dialog.resizable(True, True)
     
     # Header with consistent styling
     header_frame = ctk.CTkFrame(paths_dialog, fg_color="#181C22", height=44, corner_radius=0)
@@ -2000,68 +2050,291 @@ def show_file_paths():
     
     title_label = ctk.CTkLabel(
         header_frame,
-        text="File Paths",
+        text="File Paths Configuration",
         font=("Segoe UI", 15, "bold"),
         text_color="white",
         anchor="w"
     )
     title_label.pack(side="left", padx=(15, 0), pady=6)
     
-    # Content frame
-    content_frame = ctk.CTkFrame(paths_dialog)
+    # Content frame with scroll
+    content_frame = ctk.CTkScrollableFrame(paths_dialog)
     content_frame.pack(fill="both", expand=True, padx=15, pady=15)
     
-    # Paths information with better formatting
-    paths_info = [
-        ("Macro Data File:", macro_data_file_path, os.path.exists(macro_data_file_path)),
-        ("Log File:", log_file_path, os.path.exists(log_file_path)),
-        ("Config File:", config_file_path, os.path.exists(config_file_path)),
-        ("Current Directory:", os.getcwd(), True)
+    # Load current config
+    config = load_config()
+    
+    # Define path configurations
+    path_configs = [
+        {
+            "key": "macro_data_file",
+            "label": "Macro Data File:",
+            "current_path": macro_data_file_path,
+            "file_types": [("XML files", "*.xml"), ("All files", "*.*")],
+            "is_file": True,
+            "description": "Location of the XML file containing your macros and categories"
+        },
+        {
+            "key": "log_file", 
+            "label": "Log File:",
+            "current_path": log_file_path,
+            "file_types": [("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")],
+            "is_file": True,
+            "description": "Location of the application log file"
+        },
+        {
+            "key": "config_file",
+            "label": "Config File:",
+            "current_path": config_file_path,
+            "file_types": [("JSON files", "*.json"), ("All files", "*.*")],
+            "is_file": True,
+            "description": "Location of the configuration file (this file) - WARNING: Changing this will move the config file itself!"
+        }
     ]
     
-    for i, (label_text, path, exists) in enumerate(paths_info):
-        # Label container
-        entry_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-        entry_frame.pack(fill="x", pady=(10 if i > 0 else 0))
+    # Store entry widgets and their associated data
+    entries = {}
+    
+    for i, path_config in enumerate(path_configs):
+        # Main container for each path
+        path_container = ctk.CTkFrame(content_frame, fg_color="transparent")
+        path_container.pack(fill="x", pady=(15 if i > 0 else 0))
         
-        # Path label
+        # Label and description
+        label_frame = ctk.CTkFrame(path_container, fg_color="transparent")
+        label_frame.pack(fill="x", pady=(0, 5))
+        
         label = ctk.CTkLabel(
-            entry_frame,
-            text=label_text,
+            label_frame,
+            text=path_config["label"],
             font=("Segoe UI", 12, "bold"),
             anchor="w"
         )
-        label.pack(side="left", padx=(5, 0), fill="x")
+        label.pack(side="left", anchor="w")
         
-        # Path value with status indicator
-        status_color = "#4CAF50" if exists else "#F44336"  # Green if exists, red if not
-        path_text = ctk.CTkTextbox(entry_frame, height=40, wrap="word", activate_scrollbars=True)  # Increased height and enabled scrollbars
-        path_text.insert("1.0", path)
-        path_text.configure(state="disabled")
-        path_text.pack(fill="x", pady=(2, 0))
+        # Description tooltip
+        if path_config["description"]:
+            CTkTooltip(label, path_config["description"])
         
-        # Exists indicator
-        status_text = f"Exists: {'Yes' if exists else 'No'}"
-        status_label = ctk.CTkLabel(
+        # Path entry and browse button frame
+        entry_frame = ctk.CTkFrame(path_container, fg_color="transparent")
+        entry_frame.pack(fill="x")
+        
+        # Path entry
+        path_entry = ctk.CTkEntry(entry_frame, height=35)
+        path_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        # Browse button
+        def make_browse_handler(config_key, is_file, file_types, entry_widget):
+            def browse_handler():
+                current_path = entry_widget.get()
+                initial_dir = os.path.dirname(current_path) if current_path and os.path.exists(current_path) else os.path.expanduser("~")
+                
+                if is_file:
+                    new_path = filedialog.askopenfilename(
+                        title=f"Select {config_key.replace('_', ' ').title()}",
+                        initialdir=initial_dir,
+                        filetypes=file_types
+                    )
+                else:
+                    new_path = filedialog.askdirectory(
+                        title=f"Select {config_key.replace('_', ' ').title()} Directory",
+                        initialdir=initial_dir
+                    )
+                
+                if new_path:
+                    entry_widget.delete(0, "end")
+                    entry_widget.insert(0, new_path)
+                    # Update status immediately
+                    update_path_status(config_key, entry_widget, status_label)
+            
+            return browse_handler
+        
+        browse_btn = ctk.CTkButton(
             entry_frame,
-            text=status_text,
+            text="Browse",
+            width=80,
+            command=make_browse_handler(
+                path_config["key"], 
+                path_config["is_file"], 
+                path_config["file_types"], 
+                path_entry
+            )
+        )
+        browse_btn.pack(side="right")
+        
+        # Status indicator
+        status_label = ctk.CTkLabel(
+            path_container,
+            text="",
             font=("Segoe UI", 10),
-            text_color=status_color,
             anchor="w"
         )
-        status_label.pack(anchor="w")
+        status_label.pack(anchor="w", pady=(2, 0))
+        
+        # Store entry widget and status label for later use
+        entries[path_config["key"]] = {
+            "entry": path_entry,
+            "status": status_label,
+            "config": path_config
+        }
+        
+        # Set initial value from config or current path
+        config_path = config.get(path_config["key"], path_config["current_path"])
+        path_entry.insert(0, config_path)
+        
+        # Update initial status
+        update_path_status(path_config["key"], path_entry, status_label)
     
-    # OK button at bottom
-    btn_frame = ctk.CTkFrame(paths_dialog, fg_color="transparent")
-    btn_frame.pack(fill="x", pady=(0, 15))
+    # Add current directory info (read-only)
+    current_dir_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    current_dir_frame.pack(fill="x", pady=(20, 0))
     
-    ok_btn = ctk.CTkButton(
-        btn_frame,
-        text="OK",
-        width=100,
-        command=paths_dialog.destroy
+    current_dir_label = ctk.CTkLabel(
+        current_dir_frame,
+        text="Current Directory:",
+        font=("Segoe UI", 12, "bold"),
+        anchor="w"
     )
-    ok_btn.pack(side="right", padx=15)
+    current_dir_label.pack(anchor="w")
+    
+    current_dir_entry = ctk.CTkEntry(current_dir_frame, height=35, state="readonly")
+    current_dir_entry.pack(fill="x", pady=(5, 0))
+    current_dir_entry.configure(state="normal")
+    current_dir_entry.insert(0, os.getcwd())
+    current_dir_entry.configure(state="readonly")
+    
+    current_dir_status = ctk.CTkLabel(
+        current_dir_frame,
+        text="Exists: Yes",
+        font=("Segoe UI", 10),
+        text_color="#4CAF50",
+        anchor="w"
+    )
+    current_dir_status.pack(anchor="w", pady=(2, 0))
+    
+    def update_path_status(config_key, entry_widget, status_widget):
+        """Update the status indicator for a path entry."""
+        path = entry_widget.get().strip()
+        if path:
+            exists = os.path.exists(path)
+            status_text = f"Exists: {'Yes' if exists else 'No'}"
+            status_color = "#4CAF50" if exists else "#F44336"
+            status_widget.configure(text=status_text, text_color=status_color)
+        else:
+            status_widget.configure(text="No path specified", text_color="orange")
+    
+    # Buttons frame
+    btn_frame = ctk.CTkFrame(paths_dialog, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(0, 15), padx=15)
+    
+    def save_paths():
+        """Save the configured paths to config.json."""
+        global config_file_path, macro_data_file_path, log_file_path
+        
+        new_config = load_config()
+        
+        # Update config with new paths
+        for config_key, entry_data in entries.items():
+            new_path = entry_data["entry"].get().strip()
+            if new_path:
+                new_config[config_key] = new_path
+        
+        # Special handling for config file path change
+        old_config_path = config_file_path
+        new_config_path = new_config.get("config_file", config_file_path)
+        
+        # Save config to the new location if config file path changed
+        if new_config_path != old_config_path:
+            # Warn user about config file path change
+            warning_msg = f"You are changing the location of the configuration file from:\n{old_config_path}\n\nto:\n{new_config_path}\n\nThis is a critical change. Are you sure you want to continue?"
+            if not styled_askyesno("Confirm Config File Move", warning_msg, parent=paths_dialog):
+                return
+            
+            # Create directory for new config file if it doesn't exist
+            new_config_dir = os.path.dirname(new_config_path)
+            if new_config_dir and not os.path.exists(new_config_dir):
+                try:
+                    os.makedirs(new_config_dir, exist_ok=True)
+                except Exception as e:
+                    styled_showerror("Error", f"Cannot create directory for new config file:\n{e}", parent=paths_dialog)
+                    return
+            
+            # Save to new location
+            if save_config_to_path(new_config, new_config_path):
+                # Update global config file path
+                config_file_path = new_config_path
+                
+                # Update other global variables
+                macro_data_file_path = new_config.get("macro_data_file", macro_data_file_path)
+                log_file_path = new_config.get("log_file", log_file_path)
+                
+                log_message(f"Updated file paths configuration and moved config file to: {new_config_path}")
+                styled_showinfo("Success", f"File paths have been updated successfully.\n\nConfig file moved to:\n{new_config_path}", parent=paths_dialog)
+                paths_dialog.destroy()
+            else:
+                styled_showerror("Error", f"Failed to save config file to new location:\n{new_config_path}", parent=paths_dialog)
+        else:
+            # Save to current location
+            if save_config(new_config):
+                # Update global variables
+                macro_data_file_path = new_config.get("macro_data_file", macro_data_file_path)
+                log_file_path = new_config.get("log_file", log_file_path)
+                
+                log_message(f"Updated file paths configuration")
+                styled_showinfo("Success", "File paths have been updated successfully.", parent=paths_dialog)
+                paths_dialog.destroy()
+            else:
+                styled_showerror("Error", "Failed to save file paths configuration.", parent=paths_dialog)
+    
+    def reset_to_defaults():
+        """Reset paths to their default locations."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        app_data_dir = os.path.join(script_dir, "MacroMouse_Data")
+        
+        default_paths = {
+            "macro_data_file": os.path.join(app_data_dir, "macros.xml"),
+            "log_file": os.path.join(app_data_dir, "MacroMouse.log"),
+            "config_file": os.path.join(app_data_dir, "config.json")
+        }
+        
+        for config_key, default_path in default_paths.items():
+            if config_key in entries:
+                entry_data = entries[config_key]
+                entry_data["entry"].delete(0, "end")
+                entry_data["entry"].insert(0, default_path)
+                update_path_status(config_key, entry_data["entry"], entry_data["status"])
+    
+    def cancel_changes():
+        """Cancel changes and close dialog."""
+        paths_dialog.destroy()
+    
+    # Buttons
+    reset_btn = ctk.CTkButton(
+        btn_frame,
+        text="Reset to Defaults",
+        command=reset_to_defaults,
+        fg_color="orange",
+        width=120
+    )
+    reset_btn.pack(side="left", padx=(0, 10))
+    
+    cancel_btn = ctk.CTkButton(
+        btn_frame,
+        text="Cancel",
+        command=cancel_changes,
+        fg_color="gray",
+        width=100
+    )
+    cancel_btn.pack(side="right", padx=(10, 0))
+    
+    save_btn = ctk.CTkButton(
+        btn_frame,
+        text="Save Changes",
+        command=save_paths,
+        width=120
+    )
+    save_btn.pack(side="right")
     
     # Center the dialog on screen
     paths_dialog.update_idletasks()
@@ -2070,16 +2343,6 @@ def show_file_paths():
     x = (paths_dialog.winfo_screenwidth() // 2) - (width // 2)
     y = (paths_dialog.winfo_screenheight() // 2) - (height // 2)
     paths_dialog.geometry(f"{width}x{height}+{x}+{y}")
-    
-    # Add a note about resizing
-    note_label = ctk.CTkLabel(
-        btn_frame,
-        text="Note: This window can be resized by dragging its edges",
-        font=("Segoe UI", 10),
-        text_color="gray",
-        anchor="w"
-    )
-    note_label.pack(side="left", padx=15)
     
     paths_dialog.wait_window()
 
@@ -2530,6 +2793,521 @@ def show_unresolved_tags_dialog(macro_name, unresolved_tags):
     dialog.wait_window()
     return result[0]
 
+# Cloud sync functionality
+def show_cloud_sync_dialog():
+    """Show the cloud sync dialog with Firebase integration."""
+    sync_dialog = ctk.CTkToplevel(window)
+    sync_dialog.title("MacroMouse Cloud Sync")
+    sync_dialog.geometry("600x500")
+    sync_dialog.minsize(500, 400)
+    sync_dialog.grab_set()
+    
+    # Header
+    header_frame = ctk.CTkFrame(sync_dialog, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="Cloud Sync",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content
+    content_frame = ctk.CTkScrollableFrame(sync_dialog)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    # Status display
+    status_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    status_frame.pack(fill="x", pady=(0, 15))
+    
+    status_title = ctk.CTkLabel(
+        status_frame,
+        text="Sync Status",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    status_title.pack(anchor="w", pady=(0, 10))
+    
+    status_text = ctk.CTkTextbox(status_frame, height=200, wrap="word")
+    status_text.pack(fill="x")
+    status_text.insert("1.0", "Ready to sync. Click 'Sync Now' to start.\n")
+    status_text.configure(state="disabled")
+    
+    # Sync button
+    btn_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(15, 0))
+    
+    def perform_sync():
+        """Perform the actual sync operation."""
+        status_text.configure(state="normal")
+        status_text.delete("1.0", "end")
+        status_text.insert("1.0", "Starting sync...\n")
+        status_text.configure(state="disabled")
+        
+        # Disable button during sync
+        sync_btn.configure(state="disabled", text="Syncing...")
+        
+        # Run sync in a separate thread to avoid blocking UI
+        def sync_thread():
+            try:
+                result = sync_files_with_config()
+                # Update UI from main thread
+                sync_dialog.after(0, lambda: update_sync_status(result))
+            except Exception as e:
+                sync_dialog.after(0, lambda: update_sync_status([f"❌ Sync failed: {str(e)}"]))
+        
+        threading.Thread(target=sync_thread, daemon=True).start()
+    
+    def update_sync_status(results):
+        """Update the status display with sync results."""
+        status_text.configure(state="normal")
+        status_text.delete("1.0", "end")
+        for result in results:
+            status_text.insert("end", f"{result}\n")
+        status_text.configure(state="disabled")
+        
+        # Re-enable button
+        sync_btn.configure(state="normal", text="🔁 Sync Now")
+        
+        # Show completion message
+        if any("❌" in result for result in results):
+            styled_showerror("Sync Complete", "Sync completed with errors. Check the status above.", parent=sync_dialog)
+        else:
+            styled_showinfo("Sync Complete", "Sync completed successfully!", parent=sync_dialog)
+    
+    sync_btn = ctk.CTkButton(
+        btn_frame,
+        text="🔁 Sync Now",
+        command=perform_sync,
+        height=40,
+        font=("Segoe UI", 14, "bold")
+    )
+    sync_btn.pack(pady=10)
+    
+    # Center the dialog
+    sync_dialog.update_idletasks()
+    width = sync_dialog.winfo_width()
+    height = sync_dialog.winfo_height()
+    x = (sync_dialog.winfo_screenwidth() // 2) - (width // 2)
+    y = (sync_dialog.winfo_screenheight() // 2) - (height // 2)
+    sync_dialog.geometry(f"{width}x{height}+{x}+{y}")
+
+def sync_files_with_config():
+    """Sync files using paths from config and Firebase storage."""
+    results = []
+    
+    # Firebase configuration
+    FILES = {
+        'macros.xml': {
+            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.appspot.com/o/macro-data%2Fmacros.xml?alt=media&token=9b66f288-0df6-420c-95a8-816d2dd81bad',
+            'firebase_path': 'macro-data/macros.xml'
+        },
+        'config.json': {
+            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.appspot.com/o/macro-data%2Fconfig.json?alt=media&token=d8990581-5a15-4922-87b5-013c9a5a9ed8',
+            'firebase_path': 'macro-data/config.json'
+        },
+        'MacroMouse.log': {
+            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.appspot.com/o/macro-data%2FMacroMouse.log?alt=media&token=f26e4225-4dbb-45d5-bffb-97ad2dbd74eb',
+            'firebase_path': 'macro-data/MacroMouse.log'
+        }
+    }
+    
+    # Check if service account file exists
+    service_account_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "service_account.json")
+    if not os.path.exists(service_account_path):
+        results.append("❌ Service account file not found. Please ensure 'service_account.json' is in the application directory.")
+        return results
+    
+    # Set up Google Cloud credentials
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = service_account_path
+    bucket_name = 'spendingcache-personal.appspot.com'
+    
+    try:
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+    except Exception as e:
+        results.append(f"❌ Failed to connect to Firebase: {str(e)}")
+        return results
+    
+    def get_remote_modified_time(firebase_path):
+        """Get the last modified time of a file in Firebase storage."""
+        try:
+            blob = bucket.get_blob(firebase_path)
+            if not blob:
+                raise FileNotFoundError(f"Remote file '{firebase_path}' not found.")
+            return blob.updated.replace(tzinfo=None)
+        except Exception as e:
+            raise Exception(f"Error getting remote time for {firebase_path}: {str(e)}")
+    
+    # Get file paths from config
+    config = load_config()
+    
+    for filename, info in FILES.items():
+        try:
+            # Get local path from config or use default
+            if filename == 'macros.xml':
+                local_path = config.get('macro_data_file', macro_data_file_path)
+            elif filename == 'config.json':
+                local_path = config.get('config_file', config_file_path)
+            elif filename == 'MacroMouse.log':
+                local_path = config.get('log_file', log_file_path)
+            else:
+                local_path = os.path.join(os.path.dirname(macro_data_file_path), filename)
+            
+            firebase_path = info['firebase_path']
+            
+            # Get remote modification time
+            try:
+                remote_time = get_remote_modified_time(firebase_path)
+            except Exception as e:
+                results.append(f"❌ Could not get remote time for {filename}: {str(e)}")
+                continue
+            
+            if os.path.exists(local_path):
+                local_time = datetime.utcfromtimestamp(os.path.getmtime(local_path))
+                
+                if remote_time > local_time:
+                    # Download from Firebase
+                    try:
+                        r = requests.get(info['url'])
+                        r.raise_for_status()
+                        with open(local_path, 'wb') as f:
+                            f.write(r.content)
+                        results.append(f"⬇️ Downloaded newer version of {filename}")
+                        log_message(f"Cloud sync: Downloaded {filename}")
+                    except Exception as e:
+                        results.append(f"❌ Failed to download {filename}: {str(e)}")
+                elif remote_time < local_time:
+                    # Upload to Firebase
+                    try:
+                        blob = bucket.blob(firebase_path)
+                        blob.upload_from_filename(local_path)
+                        results.append(f"⬆️ Uploaded newer local version of {filename}")
+                        log_message(f"Cloud sync: Uploaded {filename}")
+                    except Exception as e:
+                        results.append(f"❌ Failed to upload {filename}: {str(e)}")
+                else:
+                    results.append(f"✅ {filename} is up to date")
+            else:
+                # File doesn't exist locally - download it
+                try:
+                    r = requests.get(info['url'])
+                    r.raise_for_status()
+                    # Ensure directory exists
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    with open(local_path, 'wb') as f:
+                        f.write(r.content)
+                    results.append(f"📥 Downloaded {filename} (no local copy)")
+                    log_message(f"Cloud sync: Downloaded {filename} (new file)")
+                except Exception as e:
+                    results.append(f"❌ Failed to download {filename}: {str(e)}")
+                    
+        except Exception as e:
+            results.append(f"❌ Error processing {filename}: {str(e)}")
+    
+    return results
+
+# Add help for the configuration and dependencies
+def show_about_config():
+    """Show information about the application configuration and dependencies."""
+    help_popup = ctk.CTkToplevel(window)
+    help_popup.title("About Configuration")
+    help_popup.geometry("900x700")
+    help_popup.minsize(800, 600)
+    help_popup.grab_set()
+    
+    # Header
+    header_frame = ctk.CTkFrame(help_popup, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="About Configuration",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content
+    content_frame = ctk.CTkScrollableFrame(help_popup)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    # Get current configuration
+    config = load_config()
+    
+    # Get Python version and platform info
+    import platform
+    python_version = platform.python_version()
+    platform_info = platform.platform()
+    
+    # Get dependency versions
+    try:
+        import customtkinter
+        ctk_version = customtkinter.__version__
+    except:
+        ctk_version = "Unknown"
+    
+    try:
+        import PIL
+        pil_version = PIL.__version__
+    except:
+        pil_version = "Unknown"
+    
+    try:
+        import pystray
+        pystray_version = pystray.__version__
+    except:
+        pystray_version = "Unknown"
+    
+    try:
+        import pyperclip
+        pyperclip_version = pyperclip.__version__
+    except:
+        pyperclip_version = "Unknown"
+    
+    try:
+        import requests
+        requests_version = requests.__version__
+    except:
+        requests_version = "Unknown"
+    
+    try:
+        import google.cloud.storage
+        gcs_version = google.cloud.storage.__version__
+    except:
+        gcs_version = "Unknown"
+    
+    # Create a nicely formatted display with proper sections
+    sections = []
+    
+    # Application Details Section
+    app_details_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    app_details_frame.pack(fill="x", pady=(0, 15))
+    
+    app_title = ctk.CTkLabel(
+        app_details_frame,
+        text="Application Details",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    app_title.pack(anchor="w", pady=(0, 10))
+    
+    app_info = [
+        f"Version: MacroMouse (Custom Build)",
+        f"Python Version: {python_version}",
+        f"Platform: {platform_info}"
+    ]
+    
+    for info in app_info:
+        info_label = ctk.CTkLabel(
+            app_details_frame,
+            text=info,
+            font=("Segoe UI", 12),
+            anchor="w"
+        )
+        info_label.pack(anchor="w", pady=2)
+    
+    # Dependencies Section
+    deps_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    deps_frame.pack(fill="x", pady=(0, 15))
+    
+    deps_title = ctk.CTkLabel(
+        deps_frame,
+        text="Dependencies",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    deps_title.pack(anchor="w", pady=(0, 10))
+    
+    deps_info = [
+        f"CustomTkinter: {ctk_version} - Modern GUI framework",
+        f"Pillow (PIL): {pil_version} - Image processing for icons",
+        f"pystray: {pystray_version} - System tray functionality",
+        f"pyperclip: {pyperclip_version} - Clipboard operations",
+        f"requests: {requests_version} - HTTP requests for cloud sync",
+        f"google-cloud-storage: {gcs_version} - Firebase/Google Cloud storage"
+    ]
+    
+    for dep in deps_info:
+        dep_label = ctk.CTkLabel(
+            deps_frame,
+            text=dep,
+            font=("Segoe UI", 12),
+            anchor="w"
+        )
+        dep_label.pack(anchor="w", pady=2)
+    
+    # Configuration Files Section
+    config_files_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    config_files_frame.pack(fill="x", pady=(0, 15))
+    
+    config_files_title = ctk.CTkLabel(
+        config_files_frame,
+        text="Configuration Files",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    config_files_title.pack(anchor="w", pady=(0, 10))
+    
+    config_files_info = [
+        f"Config File: {config_file_path}",
+        f"Macro Data File: {macro_data_file_path}",
+        f"Log File: {log_file_path}"
+    ]
+    
+    for file_info in config_files_info:
+        file_label = ctk.CTkLabel(
+            config_files_frame,
+            text=file_info,
+            font=("Segoe UI", 12),
+            anchor="w"
+        )
+        file_label.pack(anchor="w", pady=2)
+    
+    # Current Settings Section
+    settings_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    settings_frame.pack(fill="x", pady=(0, 15))
+    
+    settings_title = ctk.CTkLabel(
+        settings_frame,
+        text="Current Configuration Settings",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    settings_title.pack(anchor="w", pady=(0, 10))
+    
+    settings_info = [
+        f"Theme Mode: {config.get('theme_mode', 'Dark')}",
+        f"Icon Path: {config.get('icon_path', 'Default')}",
+        f"Reference File: {config.get('reference_file', 'Not set')}"
+    ]
+    
+    for setting in settings_info:
+        setting_label = ctk.CTkLabel(
+            settings_frame,
+            text=setting,
+            font=("Segoe UI", 12),
+            anchor="w"
+        )
+        setting_label.pack(anchor="w", pady=2)
+    
+    # Installation Requirements Section
+    install_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    install_frame.pack(fill="x", pady=(0, 15))
+    
+    install_title = ctk.CTkLabel(
+        install_frame,
+        text="Installation Requirements",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    install_title.pack(anchor="w", pady=(0, 10))
+    
+    install_text = ctk.CTkLabel(
+        install_frame,
+        text="To install MacroMouse dependencies, run:",
+        font=("Segoe UI", 12),
+        anchor="w"
+    )
+    install_text.pack(anchor="w", pady=(0, 5))
+    
+    # Code block style
+    code_frame = ctk.CTkFrame(install_frame, fg_color="#2B2B2B", corner_radius=5)
+    code_frame.pack(fill="x", pady=(0, 10))
+    
+    code_text = ctk.CTkLabel(
+        code_frame,
+        text="pip install customtkinter pillow pystray pyperclip requests google-cloud-storage",
+        font=("Consolas", 11),
+        text_color="#00FF00",
+        anchor="w"
+    )
+    code_text.pack(padx=10, pady=8)
+    
+    # Configuration Management Section
+    mgmt_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    mgmt_frame.pack(fill="x", pady=(0, 15))
+    
+    mgmt_title = ctk.CTkLabel(
+        mgmt_frame,
+        text="Configuration Management",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    mgmt_title.pack(anchor="w", pady=(0, 10))
+    
+    mgmt_items = [
+        "File Paths: Configure via File → Data File → Configure File Paths",
+        "Theme: Change via Tools → Theme",
+        "Icon: Change via File → Change App Icon",
+        "Reference File: Set via File → Reference File → Select Reference File"
+    ]
+    
+    for item in mgmt_items:
+        item_label = ctk.CTkLabel(
+            mgmt_frame,
+            text=f"• {item}",
+            font=("Segoe UI", 12),
+            anchor="w"
+        )
+        item_label.pack(anchor="w", pady=2)
+    
+    # Features Section
+    features_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    features_frame.pack(fill="x", pady=(0, 15))
+    
+    features_title = ctk.CTkLabel(
+        features_frame,
+        text="Features",
+        font=("Segoe UI", 16, "bold"),
+        text_color="#00BFFF"
+    )
+    features_title.pack(anchor="w", pady=(0, 10))
+    
+    features_list = [
+        "Macro Management: Create, edit, delete, and organize macros",
+        "Categories: Organize macros into custom categories",
+        "Placeholders: Dynamic text replacement with user input",
+        "System Tray: Minimize to system tray with quick access",
+        "Usage Tracking: Smart sorting based on usage frequency",
+        "Backup/Restore: Full data backup and restore functionality",
+        "Cloud Sync: Firebase integration for data synchronization",
+        "Theme Support: Dark and light theme modes",
+        "Custom Icons: Support for custom application icons"
+    ]
+    
+    for feature in features_list:
+        feature_label = ctk.CTkLabel(
+            features_frame,
+            text=f"• {feature}",
+            font=("Segoe UI", 12),
+            anchor="w"
+        )
+        feature_label.pack(anchor="w", pady=2)
+    
+    # OK button
+    ok_btn = ctk.CTkButton(
+        help_popup, 
+        text="OK", 
+        command=help_popup.destroy, 
+        height=35,
+        width=100,
+        fg_color="red"
+    )
+    ok_btn.pack(pady=(0, 15))
+    
+    # Center on screen
+    help_popup.update_idletasks()
+    width = help_popup.winfo_width()
+    height = help_popup.winfo_height()
+    x = (help_popup.winfo_screenwidth() // 2) - (width // 2)
+    y = (help_popup.winfo_screenheight() // 2) - (height // 2)
+    help_popup.geometry(f"{width}x{height}+{x}+{y}")
+
 # Add help for the placeholder feature
 def show_placeholder_help():
     help_popup = ctk.CTkToplevel(window)
@@ -2558,24 +3336,44 @@ def show_placeholder_help():
     help_text = """
     # Dynamic Placeholders
     
-    MacroMouse supports dynamic placeholders in your macros using the {{tag}} syntax.
+    MacroMouse supports two types of placeholders in your macros:
     
-    ## How It Works
+    1. User Input Placeholders: {{tag}} - Prompts for user input
+    2. Dynamic Time Placeholders: <tag> - Automatically fills with current date/time
     
-    1. When creating or editing a macro, include placeholders in double curly braces:
-       Example: "Hello {{name}}, your order #{{order_number}} has been processed."
+    ## User Input Placeholders
     
-    2. When you copy the macro:
-       - MacroMouse will detect all {{tag}} placeholders
-       - For each unique tag, you'll be prompted to enter a value
-       - All instances of that tag will be replaced with your input
+    When creating or editing a macro, include placeholders in double curly braces:
+    Example: "Hello {{name}}, your order #{{order_number}} has been processed."
+    
+    When you copy the macro:
+    - MacroMouse will detect all {{tag}} placeholders
+    - For each unique tag, you'll be prompted to enter a value
+    - All instances of that tag will be replaced with your input
+    
+    ## Dynamic Time Placeholders
+    
+    Use these special tags to automatically insert current date/time values:
+    
+    <datetime> - Current date and time (YYYY-MM-DD HH:MM:SS)
+    <date> - Current date (YYYY-MM-DD)
+    <time> - Current time (HH:MM:SS)
+    <year> - Current year (YYYY)
+    <month> - Current month (MM)
+    <day> - Current day (DD)
+    <hour> - Current hour (HH)
+    <minute> - Current minute (MM)
+    <second> - Current second (SS)
+    
+    Example: "Report generated on <datetime> by {{user_name}}"
     
     ## Tips
     
-    - Use descriptive placeholder names like {{customer_name}}, {{date}}, etc.
-    - You can use the Reference File to keep notes on your placeholder naming system
-    - The same placeholder used multiple times will be replaced with the same value
-    - Empty placeholders will remain as {{placeholder}} in the final text
+    - You can mix both types of placeholders in the same macro
+    - Dynamic time placeholders are replaced automatically
+    - User input placeholders will still prompt for values
+    - Empty user input placeholders will remain as {{placeholder}} in the final text
+    - Use the Reference File to keep notes on your placeholder naming system
     
     ## Reference File
     
@@ -2585,19 +3383,6 @@ def show_placeholder_help():
     - Access your reference file quickly via:
       • File → Reference File → View Reference File
       • The "View Reference" button next to the preview pane
-    
-    ## Example
-    
-    Original macro:
-    "Hi {{customer}}, this is {{agent_name}} following up on your {{service}} inquiry from {{date}}."
-    
-    When copied, you'll be prompted for:
-    - customer
-    - agent_name
-    - service
-    - date
-    
-    And the resulting text will have all placeholders replaced with your entries.
     """
     
     help_label = ctk.CTkLabel(
