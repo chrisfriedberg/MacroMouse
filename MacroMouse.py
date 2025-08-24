@@ -3087,303 +3087,54 @@ def sync_files_with_config():
 
 # Add help for the configuration and dependencies
 def show_about_config():
-    """Show information about the application configuration and dependencies."""
-    help_popup = ctk.CTkToplevel(window)
-    help_popup.title("About Configuration")
-    help_popup.geometry("900x700")
-    help_popup.minsize(800, 600)
-    help_popup.grab_set()
-    
-    # Header
-    header_frame = ctk.CTkFrame(help_popup, fg_color="#181C22", height=44, corner_radius=0)
-    header_frame.pack(fill="x", side="top")
-    
-    title_label = ctk.CTkLabel(
-        header_frame,
-        text="About Configuration",
-        font=("Segoe UI", 15, "bold"),
-        text_color="white",
-        anchor="w"
-    )
-    title_label.pack(side="left", padx=(15, 0), pady=6)
-    
-    # Content
-    content_frame = ctk.CTkScrollableFrame(help_popup)
-    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
-    
-    # Get current configuration
+    """Show a popup with information about the configuration files."""
     config = load_config()
-    
-    # Get Python version and platform info
-    import platform
-    python_version = platform.python_version()
-    platform_info = platform.platform()
-    
-    # Get dependency versions
-    try:
-        import customtkinter
-        ctk_version = customtkinter.__version__
-    except:
-        ctk_version = "Unknown"
-    
-    try:
-        import PIL
-        pil_version = PIL.__version__
-    except:
-        pil_version = "Unknown"
-    
-    try:
-        import pystray
-        pystray_version = pystray.__version__
-    except:
-        pystray_version = "Unknown"
-    
-    try:
-        import pyperclip
-        pyperclip_version = pyperclip.__version__
-    except:
-        pyperclip_version = "Unknown"
-    
-    try:
-        import requests
-        requests_version = requests.__version__
-    except:
-        requests_version = "Unknown"
-    
     try:
         import google.cloud.storage
         gcs_version = google.cloud.storage.__version__
-    except ImportError:
-        gcs_version = "Not installed"
-    except:
-        gcs_version = "Unknown"
-    
-    # Create a nicely formatted display with proper sections
-    sections = []
-    
-    # Application Details Section
-    app_details_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    app_details_frame.pack(fill="x", pady=(0, 15))
-    
-    app_title = ctk.CTkLabel(
-        app_details_frame,
-        text="Application Details",
-        font=("Segoe UI", 16, "bold"),
-        text_color="#00BFFF"
-    )
-    app_title.pack(anchor="w", pady=(0, 10))
-    
-    app_info = [
-        f"Version: MacroMouse (Custom Build)",
-        f"Python Version: {python_version}",
-        f"Platform: {platform_info}"
-    ]
-    
-    for info in app_info:
-        info_label = ctk.CTkLabel(
-            app_details_frame,
-            text=info,
-            font=("Segoe UI", 12),
-            anchor="w"
-        )
-        info_label.pack(anchor="w", pady=2)
-    
-    # Dependencies Section
-    deps_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    deps_frame.pack(fill="x", pady=(0, 15))
-    
-    deps_title = ctk.CTkLabel(
-        deps_frame,
-        text="Dependencies",
-        font=("Segoe UI", 16, "bold"),
-        text_color="#00BFFF"
-    )
-    deps_title.pack(anchor="w", pady=(0, 10))
-    
-    deps_info = [
-        f"CustomTkinter: {ctk_version} - Modern GUI framework",
-        f"Pillow (PIL): {pil_version} - Image processing for icons",
-        f"pystray: {pystray_version} - System tray functionality",
-        f"pyperclip: {pyperclip_version} - Clipboard operations",
-        f"requests: {requests_version} - HTTP requests for cloud sync",
-        f"google-cloud-storage: {gcs_version} - Firebase/Google Cloud storage"
-    ]
-    
-    for dep in deps_info:
-        dep_label = ctk.CTkLabel(
-            deps_frame,
-            text=dep,
-            font=("Segoe UI", 12),
-            anchor="w"
-        )
-        dep_label.pack(anchor="w", pady=2)
-    
-    # Configuration Files Section
-    config_files_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    config_files_frame.pack(fill="x", pady=(0, 15))
-    
-    config_files_title = ctk.CTkLabel(
-        config_files_frame,
-        text="Configuration Files",
-        font=("Segoe UI", 16, "bold"),
-        text_color="#00BFFF"
-    )
-    config_files_title.pack(anchor="w", pady=(0, 10))
-    
-    config_files_info = [
-        f"Config File: {config_file_path}",
-        f"Macro Data File: {macro_data_file_path}",
-        f"Log File: {log_file_path}"
-    ]
-    
-    for file_info in config_files_info:
-        file_label = ctk.CTkLabel(
-            config_files_frame,
-            text=file_info,
-            font=("Segoe UI", 12),
-            anchor="w"
-        )
-        file_label.pack(anchor="w", pady=2)
-    
-    # Current Settings Section
-    settings_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    settings_frame.pack(fill="x", pady=(0, 15))
-    
-    settings_title = ctk.CTkLabel(
-        settings_frame,
-        text="Current Configuration Settings",
-        font=("Segoe UI", 16, "bold"),
-        text_color="#00BFFF"
-    )
-    settings_title.pack(anchor="w", pady=(0, 10))
-    
-    settings_info = [
-        f"Theme Mode: {config.get('theme_mode', 'Dark')}",
-        f"Icon Path: {config.get('icon_path', 'Default')}",
-        f"Reference File: {config.get('reference_file', 'Not set')}"
-    ]
-    
-    for setting in settings_info:
-        setting_label = ctk.CTkLabel(
-            settings_frame,
-            text=setting,
-            font=("Segoe UI", 12),
-            anchor="w"
-        )
-        setting_label.pack(anchor="w", pady=2)
-    
-    # Installation Requirements Section
-    install_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    install_frame.pack(fill="x", pady=(0, 15))
-    
-    install_title = ctk.CTkLabel(
-        install_frame,
-        text="Installation Requirements",
-        font=("Segoe UI", 16, "bold"),
-        text_color="#00BFFF"
-    )
-    install_title.pack(anchor="w", pady=(0, 10))
-    
-    install_text = ctk.CTkLabel(
-        install_frame,
-        text="To install MacroMouse dependencies, run:",
-        font=("Segoe UI", 12),
-        anchor="w"
-    )
-    install_text.pack(anchor="w", pady=(0, 5))
-    
-    # Code block style
-    code_frame = ctk.CTkFrame(install_frame, fg_color="#2B2B2B", corner_radius=5)
-    code_frame.pack(fill="x", pady=(0, 10))
-    
-    code_text = ctk.CTkLabel(
-        code_frame,
-        text="pip install customtkinter pillow pystray pyperclip requests google-cloud-storage",
-        font=("Consolas", 11),
-        text_color="#00FF00",
-        anchor="w"
-    )
-    code_text.pack(padx=10, pady=8)
-    
-    # Configuration Management Section
-    mgmt_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    mgmt_frame.pack(fill="x", pady=(0, 15))
-    
-    mgmt_title = ctk.CTkLabel(
-        mgmt_frame,
-        text="Configuration Management",
-        font=("Segoe UI", 16, "bold"),
-        text_color="#00BFFF"
-    )
-    mgmt_title.pack(anchor="w", pady=(0, 10))
-    
-    mgmt_items = [
-        "File Paths: Configure via File → Data File → Configure File Paths",
-        "Theme: Change via Tools → Theme",
-        "Icon: Change via File → Change App Icon",
-        "Reference File: Set via File → Reference File → Select Reference File"
-    ]
-    
-    for item in mgmt_items:
-        item_label = ctk.CTkLabel(
-            mgmt_frame,
-            text=f"• {item}",
-            font=("Segoe UI", 12),
-            anchor="w"
-        )
-        item_label.pack(anchor="w", pady=2)
-    
-    # Features Section
-    features_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-    features_frame.pack(fill="x", pady=(0, 15))
-    
-    features_title = ctk.CTkLabel(
-        features_frame,
-        text="Features",
-        font=("Segoe UI", 16, "bold"),
-        text_color="#00BFFF"
-    )
-    features_title.pack(anchor="w", pady=(0, 10))
-    
-    features_list = [
-        "Macro Management: Create, edit, delete, and organize macros",
-        "Categories: Organize macros into custom categories",
-        "Placeholders: Dynamic text replacement with user input",
-        "System Tray: Minimize to system tray with quick access",
-        "Usage Tracking: Smart sorting based on usage frequency",
-        "Backup/Restore: Full data backup and restore functionality",
-        "Cloud Sync: Firebase integration for data synchronization",
-        "Theme Support: Dark and light theme modes",
-        "Custom Icons: Support for custom application icons"
-    ]
-    
-    for feature in features_list:
-        feature_label = ctk.CTkLabel(
-            features_frame,
-            text=f"• {feature}",
-            font=("Segoe UI", 12),
-            anchor="w"
-        )
-        feature_label.pack(anchor="w", pady=2)
-    
-    # OK button
-    ok_btn = ctk.CTkButton(
-        help_popup, 
-        text="OK", 
-        command=help_popup.destroy, 
-        height=35,
-        width=100,
-        fg_color="red"
-    )
-    ok_btn.pack(pady=(0, 15))
-    
-    # Center on screen
-    help_popup.update_idletasks()
-    width = help_popup.winfo_width()
-    height = help_popup.winfo_height()
-    x = (help_popup.winfo_screenwidth() // 2) - (width // 2)
-    y = (help_popup.winfo_screenheight() // 2) - (height // 2)
-    help_popup.geometry(f"{width}x{height}+{x}+{y}")
+    except (ImportError, AttributeError):
+        gcs_version = "Not available"
+
+    about_text = f"""
+    MacroMouse Configuration
+
+    - Config File: {config_file_path}
+    - Macro Data File: {macro_data_file_path}
+    - Log File: {log_file_path}
+    - Reference File: {reference_file_path or 'Not set'}
+
+    To change these paths, go to File > Data File > Configure File Paths.
+
+    Dependencies:
+    - customtkinter: {ctk.__version__}
+    - pystray: version not available
+    - Pillow: {Image.__version__}
+    - requests: {requests.__version__}
+    - google-cloud-storage: {gcs_version}
+
+    To install all dependencies, run:
+    pip install customtkinter pystray pillow requests google-cloud-storage
+
+    ---
+    Troubleshooting Summary:
+
+    1. Invalid JWT Signature:
+       - Issue: The service account key for Firebase was invalid.
+       - Resolution: Replaced with a new service account key.
+
+    2. Google Cloud Storage not installed:
+       - Issue: The Python environment was missing the package.
+       - Resolution: Installed the package and configured the IDE to use the correct Python environment.
+
+    3. 404 Not Found:
+       - Issue: The Firebase Storage bucket name was incorrect.
+       - Resolution: Corrected the bucket name in the script.
+
+    4. Git Error:
+       - Issue: A secret file was preventing pushing to the remote repository.
+       - Resolution: Removed the secret file from the git history and added it to .gitignore.
+    """
+    messagebox.showinfo("About Configuration", about_text)
 
 # Add help for the placeholder feature
 def show_placeholder_help():
