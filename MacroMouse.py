@@ -17,7 +17,7 @@ import threading
 import functools
 import tempfile
 import requests
-from google.cloud import storage
+import time
 
 # --- GLOBALS ---
 log_file_path = None
@@ -1972,6 +1972,8 @@ def create_macro_window():
     # Store a reference to the update_list function
     update_list_func = update_list
 
+
+
 def main():
     """Main entry point for the application."""
     global macro_data_file_path, log_file_path, config_file_path, reference_file_path
@@ -2230,7 +2232,6 @@ def show_file_paths():
     
     def save_paths():
         """Save the configured paths to config.json."""
-        global config_file_path, macro_data_file_path, log_file_path
         
         new_config = load_config()
         
@@ -2896,51 +2897,123 @@ def show_cloud_sync_dialog():
     sync_dialog.geometry(f"{width}x{height}+{x}+{y}")
 
 def sync_files_with_config():
-    """Sync files using paths from config and Firebase storage."""
+    """Sync files using paths from config and Firebase storage with improved timestamp handling."""
     results = []
+    
+    # Try to import Google Cloud Storage
+    try:
+        from google.cloud import storage
+    except ImportError:
+        results.append("❌ Google Cloud Storage not installed. Please run: pip install google-cloud-storage")
+        return results
     
     # Firebase configuration
     FILES = {
         'macros.xml': {
-            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.appspot.com/o/macro-data%2Fmacros.xml?alt=media&token=9b66f288-0df6-420c-95a8-816d2dd81bad',
+            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.firebasestorage.app/o/macro-data%2Fmacros.xml?alt=media&token=9b66f288-0df6-420c-95a8-816d2dd81bad',
             'firebase_path': 'macro-data/macros.xml'
         },
         'config.json': {
-            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.appspot.com/o/macro-data%2Fconfig.json?alt=media&token=d8990581-5a15-4922-87b5-013c9a5a9ed8',
+            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.firebasestorage.app/o/macro-data%2Fconfig.json?alt=media&token=d8990581-5a15-4922-87b5-013c9a5a9ed8',
             'firebase_path': 'macro-data/config.json'
         },
         'MacroMouse.log': {
-            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.appspot.com/o/macro-data%2FMacroMouse.log?alt=media&token=f26e4225-4dbb-45d5-bffb-97ad2dbd74eb',
+            'url': 'https://firebasestorage.googleapis.com/v0/b/spendingcache-personal.firebasestorage.app/o/macro-data%2FMacroMouse.log?alt=media&token=f26e4225-4dbb-45d5-bffb-97ad2dbd74eb',
             'firebase_path': 'macro-data/MacroMouse.log'
         }
     }
     
-    # Check if service account file exists
-    service_account_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "service_account.json")
+    # Check if service account file exists - hardcoded to your actual file
+    service_account_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "MacroMouse_Data", "newest-service-account.json")
     if not os.path.exists(service_account_path):
-        results.append("❌ Service account file not found. Please ensure 'service_account.json' is in the application directory.")
+        results.append("❌ Service account file not found. Please ensure 'spendingcache-personal-firebase-adminsdk-fbsvc-148f467967.json' is in the MacroMouse_Data directory.")
         return results
     
     # Set up Google Cloud credentials
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = service_account_path
-    bucket_name = 'spendingcache-personal.appspot.com'
+    bucket_name = 'spendingcache-personal.firebasestorage.app'
     
     try:
         client = storage.Client()
         bucket = client.bucket(bucket_name)
+        # Test the connection by listing a few blobs
+        blobs = list(bucket.list_blobs(max_results=1))
+        log_message(f"Cloud sync: Successfully connected to Firebase bucket: {bucket_name}")
     except Exception as e:
-        results.append(f"❌ Failed to connect to Firebase: {str(e)}")
+        error_msg = f"❌ Failed to connect to Firebase: {str(e)}"
+        log_message(f"Cloud sync error: {error_msg}")
+        results.append(error_msg)
         return results
     
-    def get_remote_modified_time(firebase_path):
-        """Get the last modified time of a file in Firebase storage."""
+    def get_local_timestamp(local_path):
+        """Get local file modification timestamp."""
+        if not os.path.exists(local_path):
+            return 0
+        return int(os.path.getmtime(local_path))
+    
+    def get_remote_timestamp(firebase_path):
+        """Get remote file timestamp from metadata or blob updated time."""
         try:
-            blob = bucket.get_blob(firebase_path)
-            if not blob:
-                raise FileNotFoundError(f"Remote file '{firebase_path}' not found.")
-            return blob.updated.replace(tzinfo=None)
+            blob = bucket.blob(firebase_path)
+            
+            # Try to get custom timestamp from metadata first
+            if blob.exists():
+                metadata = blob.metadata or {}
+                custom_timestamp = metadata.get('last_modified')
+                if custom_timestamp:
+                    return int(float(custom_timestamp))
+                
+                # Fall back to blob updated time
+                return int(blob.updated.replace(tzinfo=None).timestamp())
+            else:
+                return 0
         except Exception as e:
-            raise Exception(f"Error getting remote time for {firebase_path}: {str(e)}")
+            log_message(f"Cloud sync: Error getting remote timestamp for {firebase_path}: {str(e)}")
+            return 0
+    
+    def upload_file_with_metadata(local_path, firebase_path):
+        """Upload file with custom timestamp metadata."""
+        try:
+            blob = bucket.blob(firebase_path)
+            
+            # Set custom metadata with current timestamp
+            current_timestamp = str(time.time())
+            metadata = {
+                'last_modified': current_timestamp,
+                'uploaded_at': datetime.now().isoformat(),
+                'file_size': str(os.path.getsize(local_path))
+            }
+            
+            blob.metadata = metadata
+            blob.upload_from_filename(local_path)
+            
+            log_message(f"Cloud sync: Uploaded {os.path.basename(local_path)} with timestamp {current_timestamp}")
+            return True
+        except Exception as e:
+            log_message(f"Cloud sync: Upload failed for {os.path.basename(local_path)}: {str(e)}")
+            return False
+    
+    def download_file_with_metadata(firebase_path, local_path):
+        """Download file and preserve metadata."""
+        try:
+            blob = bucket.blob(firebase_path)
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            
+            # Download the file
+            blob.download_to_filename(local_path)
+            
+            # Update local file timestamp to match remote if possible
+            if blob.metadata and 'last_modified' in blob.metadata:
+                remote_timestamp = float(blob.metadata['last_modified'])
+                os.utime(local_path, (remote_timestamp, remote_timestamp))
+            
+            log_message(f"Cloud sync: Downloaded {os.path.basename(local_path)}")
+            return True
+        except Exception as e:
+            log_message(f"Cloud sync: Download failed for {os.path.basename(local_path)}: {str(e)}")
+            return False
     
     # Get file paths from config
     config = load_config()
@@ -2959,54 +3032,56 @@ def sync_files_with_config():
             
             firebase_path = info['firebase_path']
             
-            # Get remote modification time
-            try:
-                remote_time = get_remote_modified_time(firebase_path)
-            except Exception as e:
-                results.append(f"❌ Could not get remote time for {filename}: {str(e)}")
-                continue
+            # Get timestamps
+            local_timestamp = get_local_timestamp(local_path)
+            remote_timestamp = get_remote_timestamp(firebase_path)
             
-            if os.path.exists(local_path):
-                local_time = datetime.utcfromtimestamp(os.path.getmtime(local_path))
-                
-                if remote_time > local_time:
-                    # Download from Firebase
-                    try:
-                        r = requests.get(info['url'])
-                        r.raise_for_status()
-                        with open(local_path, 'wb') as f:
-                            f.write(r.content)
-                        results.append(f"⬇️ Downloaded newer version of {filename}")
-                        log_message(f"Cloud sync: Downloaded {filename}")
-                    except Exception as e:
-                        results.append(f"❌ Failed to download {filename}: {str(e)}")
-                elif remote_time < local_time:
-                    # Upload to Firebase
-                    try:
-                        blob = bucket.blob(firebase_path)
-                        blob.upload_from_filename(local_path)
-                        results.append(f"⬆️ Uploaded newer local version of {filename}")
-                        log_message(f"Cloud sync: Uploaded {filename}")
-                    except Exception as e:
-                        results.append(f"❌ Failed to upload {filename}: {str(e)}")
+            # Format timestamps for logging
+            local_time_str = datetime.fromtimestamp(local_timestamp).strftime('%Y-%m-%d %H:%M:%S') if local_timestamp > 0 else "N/A"
+            remote_time_str = datetime.fromtimestamp(remote_timestamp).strftime('%Y-%m-%d %H:%M:%S') if remote_timestamp > 0 else "N/A"
+            
+            log_message(f"Cloud sync: {filename} - Local: {local_time_str}, Remote: {remote_time_str}")
+            
+            # Compare timestamps and sync
+            if local_timestamp > remote_timestamp:
+                # Local file is newer
+                if upload_file_with_metadata(local_path, firebase_path):
+                    results.append(f"⬆️ Uploaded newer local version of {filename}")
                 else:
-                    results.append(f"✅ {filename} is up to date")
+                    results.append(f"❌ Failed to upload {filename}")
+                    
+            elif remote_timestamp > local_timestamp:
+                # Remote file is newer
+                if download_file_with_metadata(firebase_path, local_path):
+                    results.append(f"⬇️ Downloaded newer remote version of {filename}")
+                else:
+                    results.append(f"❌ Failed to download {filename}")
+                    
+            elif local_timestamp == remote_timestamp and local_timestamp > 0:
+                # Files are in sync
+                results.append(f"✅ {filename} is up to date")
+                
             else:
-                # File doesn't exist locally - download it
-                try:
-                    r = requests.get(info['url'])
-                    r.raise_for_status()
-                    # Ensure directory exists
-                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                    with open(local_path, 'wb') as f:
-                        f.write(r.content)
-                    results.append(f"📥 Downloaded {filename} (no local copy)")
-                    log_message(f"Cloud sync: Downloaded {filename} (new file)")
-                except Exception as e:
-                    results.append(f"❌ Failed to download {filename}: {str(e)}")
+                # One or both files don't exist
+                if local_timestamp == 0 and remote_timestamp == 0:
+                    results.append(f"⚠️ {filename} doesn't exist locally or remotely")
+                elif local_timestamp == 0:
+                    # Download remote file
+                    if download_file_with_metadata(firebase_path, local_path):
+                        results.append(f"📥 Downloaded {filename} (no local copy)")
+                    else:
+                        results.append(f"❌ Failed to download {filename}")
+                else:
+                    # Upload local file
+                    if upload_file_with_metadata(local_path, firebase_path):
+                        results.append(f"📤 Uploaded {filename} (no remote copy)")
+                    else:
+                        results.append(f"❌ Failed to upload {filename}")
                     
         except Exception as e:
-            results.append(f"❌ Error processing {filename}: {str(e)}")
+            error_msg = f"❌ Error processing {filename}: {str(e)}"
+            results.append(error_msg)
+            log_message(f"Cloud sync: {error_msg}")
     
     return results
 
@@ -3078,6 +3153,8 @@ def show_about_config():
     try:
         import google.cloud.storage
         gcs_version = google.cloud.storage.__version__
+    except ImportError:
+        gcs_version = "Not installed"
     except:
         gcs_version = "Unknown"
     

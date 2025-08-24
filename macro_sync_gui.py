@@ -5,6 +5,7 @@ from tkinter import messagebox
 import requests
 from google.cloud import storage
 from datetime import datetime
+from email.utils import parsedate_to_datetime
 
 # === CONFIG ===
 LOCAL_DIR = r'C:\Users\chris\OneDrive\Desktop\scripts\MacroMouse\MacroMouse_Data'
@@ -24,27 +25,30 @@ FILES = {
 }
 
 # === GOOGLE AUTH ===
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"service_account.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"path\to\your\service-account.json"
 bucket_name = 'spendingcache-personal.appspot.com'
 
 client = storage.Client()
 bucket = client.bucket(bucket_name)
 
-def get_remote_modified_time(firebase_path):
-    blob = bucket.get_blob(firebase_path)
-    if not blob:
-        raise FileNotFoundError(f"Remote file '{firebase_path}' not found.")
-    return blob.updated.replace(tzinfo=None)
+def get_remote_modified_time(file_url):
+    metadata_url = file_url.replace("?alt=media", "")  # Strip ?alt=media
+    r = requests.get(metadata_url)
+    if r.status_code != 200:
+        raise Exception(f"Failed to get metadata: {r.text}")
+    updated_str = r.json().get("updated")  # ISO 8601 format
+    return datetime.strptime(updated_str, "%Y-%m-%dT%H:%M:%S.%fZ")
 
 def sync_files():
     synced = []
 
     for filename, info in FILES.items():
         local_path = os.path.join(LOCAL_DIR, filename)
+        file_url = info['url']
         firebase_path = info['firebase_path']
 
         try:
-            remote_time = get_remote_modified_time(firebase_path)
+            remote_time = get_remote_modified_time(file_url)
         except Exception as e:
             messagebox.showerror("Sync Error", f"Could not get remote time for {filename}: {e}")
             continue
@@ -54,7 +58,7 @@ def sync_files():
 
             if remote_time > local_time:
                 # DOWNLOAD FROM FIREBASE
-                r = requests.get(info['url'])
+                r = requests.get(file_url)
                 with open(local_path, 'wb') as f:
                     f.write(r.content)
                 synced.append(f"⬇️ Downloaded newer version of {filename}")
@@ -67,11 +71,11 @@ def sync_files():
                 synced.append(f"✅ {filename} is up to date")
         else:
             # FILE DOESN’T EXIST LOCALLY → DOWNLOAD IT
-            r = requests.get(info['url'])
+            r = requests.get(file_url)
             with open(local_path, 'wb') as f:
                 f.write(r.content)
             synced.append(f"📥 Downloaded {filename} (no local copy)")
-
+    
     messagebox.showinfo("Sync Complete", "\n".join(synced))
 
 # === UI ===
