@@ -1,5 +1,8 @@
 {
     "icon_path": "C:/Users/chris/ShortcutCusto/Icons/mouse.ico",
     "theme_mode": "Dark",
-    "reference_file": "C:\\Users\\chris\\OneDrive\\Desktop\\##scripts\\MacroMouse\\MacroMouse_Data\\placeholder_reference.txt"
+    "reference_file": "C:\\Users\\chris\\OneDrive\\Desktop\\##scripts\\MacroMouse\\MacroMouse_Data\\placeholder_reference.txt",
+    "macro_data_file": "C:\\Users\\chris\\OneDrive\\Desktop\\scripts\\MacroMouse\\MacroMouse_Data\\macros.xml",
+    "log_file": "C:\\Users\\chris\\OneDrive\\Desktop\\scripts\\MacroMouse\\MacroMouse_Data\\MacroMouse.log",
+    "config_file": "C:\\Users\\chris\\OneDrive\\Desktop\\scripts\\MacroMouse\\MacroMouse_Data\\config.json"
 }

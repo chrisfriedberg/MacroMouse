@@ -29,10 +29,16 @@ macro_data_file_path = None
 reference_file_path = None  # Path to user's reference file
 macros_dict = {}  # In-memory macro storage
 macro_usage_counts = {}  # Dictionary to track macro usage counts
+macro_usage_notes = {}  # Dictionary to store usage notes for each macro
 window = None  # Global reference to the main window
 update_list_func = None  # Global reference to the update_list function
 tray_icon = None  # Global reference to the system tray icon
 last_used_macro = None  # Track the last used macro
+
+# Undo system
+undo_stack = []  # Stack to store undoable actions
+redo_stack = []  # Stack to store redoable actions
+max_undo_steps = 20  # Maximum number of undo steps to keep
 # Dictionary to store the 'Leave Raw' preference for each macro
 global macro_leave_raw_preferences
 macro_leave_raw_preferences = {}
@@ -1083,6 +1089,69 @@ def add_macro_popup(update_list_func, category_dropdown):
     content_label.pack(padx=10, pady=(10, 0), anchor="w")
     content_text = ctk.CTkTextbox(popup, height=6)
     content_text.pack(padx=10, pady=(0, 10), fill="both", expand=True)
+    
+    # Auto-resize function for content text
+    def adjust_content_height(event=None):
+        """Auto-adjust content text area height based on content."""
+        content = content_text.get("1.0", "end-1c")
+        lines = content.count('\n') + 1
+        min_height = 120
+        max_height = 400
+        line_height = 20  # Approximate line height
+        new_height = max(min_height, min(max_height, lines * line_height))
+        content_text.configure(height=new_height)
+    
+    # Bind text changes to auto-resize
+    content_text.bind("<KeyRelease>", adjust_content_height)
+    content_text.bind("<ButtonRelease-1>", adjust_content_height)
+    
+    # Add keyboard shortcuts for text editing
+    def handle_keyboard_shortcuts(event):
+        """Handle standard keyboard shortcuts for text editing."""
+        if event.state & 4:  # Ctrl key is pressed
+            if event.keysym == 'c':
+                try:
+                    content_text.clipboard_clear()
+                    content_text.clipboard_append(content_text.selection_get())
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'v':
+                try:
+                    content_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                content_text.insert("insert", content_text.clipboard_get())
+                return "break"
+            elif event.keysym == 'x':
+                try:
+                    content_text.clipboard_clear()
+                    content_text.clipboard_append(content_text.selection_get())
+                    content_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'a':
+                content_text.tag_add("sel", "1.0", "end")
+                return "break"
+            elif event.keysym == 'z':
+                try:
+                    content_text.edit_undo()
+                except tk.TclError:
+                    pass  # Nothing to undo
+                return "break"
+            elif event.keysym == 'y':
+                try:
+                    content_text.edit_redo()
+                except tk.TclError:
+                    pass  # Nothing to redo
+                return "break"
+        return None
+    
+    content_text.bind("<Key>", handle_keyboard_shortcuts)
+    
+    # Initial height adjustment
+    popup.after(100, adjust_content_height)
 
     # Buttons
     btn_frame = ctk.CTkFrame(popup)
@@ -1108,8 +1177,16 @@ def add_macro_popup(update_list_func, category_dropdown):
             
         macro_id = add_macro_to_data(cat_id, name, content)
         if macro_id:
-            macros_dict[(category_name, name)] = content
-            update_list_func((category_name, name))
+            macro_key = (category_name, name)
+            macros_dict[macro_key] = content
+            
+            # Add undo action
+            add_undo_action('add_macro', {
+                'macro_key': macro_key,
+                'content': content
+            })
+            
+            update_list_func(macro_key)
             popup.destroy()
             if category_dropdown:
                 category_dropdown.configure(values=get_categories())
@@ -1142,7 +1219,8 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
     
     popup = ctk.CTkToplevel()
     popup.title("Edit Macro")
-    popup.geometry("500x350")
+    popup.geometry("500x500")  # Increased height to accommodate usage notes
+    popup.minsize(500, 450)
     popup.grab_set()
     set_window_icon(popup)
 
@@ -1194,6 +1272,141 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
     content_text = ctk.CTkTextbox(popup, height=6)
     content_text.insert("1.0", data["macros"][macro_id]["content"])
     content_text.pack(padx=10, pady=(0, 10), fill="both", expand=True)
+    
+    # Auto-resize function for content text
+    def adjust_content_height(event=None):
+        """Auto-adjust content text area height based on content."""
+        content = content_text.get("1.0", "end-1c")
+        lines = content.count('\n') + 1
+        min_height = 120
+        max_height = 400
+        line_height = 20  # Approximate line height
+        new_height = max(min_height, min(max_height, lines * line_height))
+        content_text.configure(height=new_height)
+    
+    # Bind text changes to auto-resize
+    content_text.bind("<KeyRelease>", adjust_content_height)
+    content_text.bind("<ButtonRelease-1>", adjust_content_height)
+    
+    # Add keyboard shortcuts for text editing
+    def handle_keyboard_shortcuts(event):
+        """Handle standard keyboard shortcuts for text editing."""
+        if event.state & 4:  # Ctrl key is pressed
+            if event.keysym == 'c':
+                try:
+                    content_text.clipboard_clear()
+                    content_text.clipboard_append(content_text.selection_get())
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'v':
+                try:
+                    content_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                content_text.insert("insert", content_text.clipboard_get())
+                return "break"
+            elif event.keysym == 'x':
+                try:
+                    content_text.clipboard_clear()
+                    content_text.clipboard_append(content_text.selection_get())
+                    content_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'a':
+                content_text.tag_add("sel", "1.0", "end")
+                return "break"
+            elif event.keysym == 'z':
+                # Use global undo instead of text undo
+                if undo_last_action():
+                    show_undo_notification("Undo completed")
+                return "break"
+            elif event.keysym == 'y':
+                # Use global redo instead of text redo
+                if redo_last_action():
+                    show_undo_notification("Redo completed")
+                return "break"
+        return None
+    
+    content_text.bind("<Key>", handle_keyboard_shortcuts)
+    
+    # Initial height adjustment
+    popup.after(100, adjust_content_height)
+    
+    # Usage Notes Section
+    notes_label = ctk.CTkLabel(popup, text="Usage Notes:")
+    notes_label.pack(padx=10, pady=(10, 0), anchor="w")
+    
+    # Get current usage notes
+    macro_key = (current_category, macro_name_to_edit)
+    current_notes = macro_usage_notes.get(macro_key, {}).get("notes", "")
+    
+    # Usage notes text area
+    notes_text = ctk.CTkTextbox(popup, height=4)
+    notes_text.insert("1.0", current_notes)
+    notes_text.pack(padx=10, pady=(0, 10), fill="both", expand=True)
+    
+    # Auto-resize function for notes text
+    def adjust_notes_height(event=None):
+        """Auto-adjust notes text area height based on content."""
+        content = notes_text.get("1.0", "end-1c")
+        lines = content.count('\n') + 1
+        min_height = 80
+        max_height = 200
+        line_height = 20  # Approximate line height
+        new_height = max(min_height, min(max_height, lines * line_height))
+        notes_text.configure(height=new_height)
+    
+    # Bind text changes to auto-resize
+    notes_text.bind("<KeyRelease>", adjust_notes_height)
+    notes_text.bind("<ButtonRelease-1>", adjust_notes_height)
+    
+    # Add keyboard shortcuts for notes text editing
+    def handle_notes_keyboard_shortcuts(event):
+        """Handle standard keyboard shortcuts for notes text editing."""
+        if event.state & 4:  # Ctrl key is pressed
+            if event.keysym == 'c':
+                try:
+                    notes_text.clipboard_clear()
+                    notes_text.clipboard_append(notes_text.selection_get())
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'v':
+                try:
+                    notes_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                notes_text.insert("insert", notes_text.clipboard_get())
+                return "break"
+            elif event.keysym == 'x':
+                try:
+                    notes_text.clipboard_clear()
+                    notes_text.clipboard_append(notes_text.selection_get())
+                    notes_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'a':
+                notes_text.tag_add("sel", "1.0", "end")
+                return "break"
+            elif event.keysym == 'z':
+                # Use global undo instead of text undo
+                if undo_last_action():
+                    show_undo_notification("Undo completed")
+                return "break"
+            elif event.keysym == 'y':
+                # Use global redo instead of text redo
+                if redo_last_action():
+                    show_undo_notification("Redo completed")
+                return "break"
+        return None
+    
+    notes_text.bind("<Key>", handle_notes_keyboard_shortcuts)
+    
+    # Initial height adjustment for notes
+    popup.after(150, adjust_notes_height)
 
     # Buttons
     btn_frame = ctk.CTkFrame(popup)
@@ -1203,6 +1416,7 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
         new_name = name_entry.get().strip()
         new_category_name = cat_var.get().strip() or "Uncategorized"
         new_content = content_text.get("1.0", "end").strip()
+        new_notes = notes_text.get("1.0", "end-1c")
         
         if not new_name:
             messagebox.showerror("Error", "Macro name cannot be empty.")
@@ -1218,9 +1432,46 @@ def edit_macro_popup(macro_name_to_edit, update_list_func, category_dropdown):
             return
             
         if update_macro_in_data(macro_id, new_cat_id, new_name, new_content):
+            # Update usage notes
+            old_macro_key = (current_category, macro_name_to_edit)
+            new_macro_key = (new_category_name, new_name)
+            
+            # Store old data for undo
+            old_content = macros_dict.get(old_macro_key, "")
+            old_notes = macro_usage_notes.get(old_macro_key, {})
+            
+            # If macro name or category changed, update the notes key
+            if old_macro_key != new_macro_key:
+                if old_macro_key in macro_usage_notes:
+                    macro_usage_notes[new_macro_key] = macro_usage_notes.pop(old_macro_key)
+            
+            # Update notes content
+            macro_usage_notes[new_macro_key] = {
+                "notes": new_notes,
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            # Save notes
+            save_usage_notes()
+            
             if (current_category, macro_name_to_edit) in macros_dict:
                 del macros_dict[(current_category, macro_name_to_edit)]
             macros_dict[(new_category_name, new_name)] = new_content
+            
+            # Add undo action
+            add_undo_action('edit_macro', {
+                'old_data': {
+                    'macro_key': old_macro_key,
+                    'content': old_content,
+                    'old_notes': old_notes if old_notes else None
+                },
+                'new_data': {
+                    'macro_key': new_macro_key,
+                    'content': new_content,
+                    'new_notes': macro_usage_notes[new_macro_key] if new_notes else None
+                }
+            })
+            
             update_list_func((new_category_name, new_name))
             popup.destroy()
             if category_dropdown:
@@ -1755,8 +2006,20 @@ def create_macro_window():
                 # Standard workflow
                 if messagebox.askyesno("Confirm Delete", f"Are you sure you want to remove '{macro_name_for_msg}'?"):
                     if macro_id and delete_macro_from_data(macro_id):
+                        # Store data for undo
+                        deleted_content = macros_dict.get(selected_macro_name, "")
+                        deleted_notes = macro_usage_notes.get(selected_macro_name, {})
+                        
                         if selected_macro_name in macros_dict:
                             del macros_dict[selected_macro_name]
+                        
+                        # Add undo action
+                        add_undo_action('delete_macro', {
+                            'macro_key': selected_macro_name,
+                            'content': deleted_content,
+                            'notes': deleted_notes if deleted_notes else None
+                        })
+                        
                         selected_macro_name = None
                         update_list()
                     else:
@@ -1873,7 +2136,7 @@ def create_macro_window():
             highlight_selected_item(None)
             return
         for cat, name, content in macros:
-            # Create a frame to hold both category label and macro button
+            # Create a frame to hold category label, macro button, and paper icon
             macro_frame = ctk.CTkFrame(macro_list_frame, fg_color="transparent")
             macro_frame.pack(fill="x", pady=(0, 1), padx=1)
             
@@ -1907,10 +2170,37 @@ def create_macro_window():
                 copy_macro((c, n))
             macro_button.bind("<Double-Button-1>", on_double_click)
             
-            # Add both widgets to the list for tracking
+            # Add paper icon for usage notes
+            macro_key = (cat, name)
+            current_notes = macro_usage_notes.get(macro_key, {}).get("notes", "")
+            
+            # Set icon color based on whether notes exist
+            icon_color = "#1f538d" if current_notes else "transparent"  # Blue if notes exist (matches button color)
+            
+            paper_icon = ctk.CTkButton(
+                macro_frame,
+                text="📄",
+                width=30,
+                height=25,
+                fg_color=icon_color,
+                hover_color="#2E7D32",  # Green only on hover
+                command=lambda c=cat, n=name: show_usage_notes_dialog((c, n), window, update_list)
+            )
+            paper_icon.pack(side="right", padx=(5, 10))
+            
+            # Add tooltip for paper icon
+            if current_notes:
+                # Truncate notes for tooltip (first 100 chars)
+                tooltip_text = current_notes[:100] + "..." if len(current_notes) > 100 else current_notes
+                CTkTooltip(paper_icon, f"Usage Notes:\n{tooltip_text}")
+            else:
+                CTkTooltip(paper_icon, "Click to add usage notes")
+            
+            # Add all widgets to the list for tracking
             macro_list_items.append(macro_frame)
             macro_list_items.append(cat_label)
             macro_list_items.append(macro_button)
+            macro_list_items.append(paper_icon)
             
             # Add tooltip for description if available
             if cat in [c["name"] for c in load_macro_data()["categories"].values()]:
@@ -1936,7 +2226,9 @@ def create_macro_window():
             if isinstance(item_widget, ctk.CTkFrame):
                 item_widget.configure(fg_color="transparent")
             elif isinstance(item_widget, ctk.CTkButton):
-                item_widget.configure(border_width=0)
+                # Don't reset paper icons (📄) - they should keep their styling
+                if item_widget.cget("text") != "📄":
+                    item_widget.configure(border_width=0)
         
         # Then highlight only the selected item
         if selected_key and isinstance(selected_key, tuple):
@@ -1962,6 +2254,24 @@ def create_macro_window():
         config['theme_mode'] = mode
         save_config(config)
 
+    # Add global keyboard shortcuts for undo/redo
+    def handle_global_keyboard(event):
+        """Handle global keyboard shortcuts."""
+        if event.state & 4:  # Ctrl key is pressed
+            if event.keysym == 'z':
+                if undo_last_action():
+                    # Show a brief notification
+                    show_undo_notification("Undo completed")
+                return "break"
+            elif event.keysym == 'y':
+                if redo_last_action():
+                    # Show a brief notification
+                    show_undo_notification("Redo completed")
+                return "break"
+        return None
+    
+    window.bind("<Key>", handle_global_keyboard)
+    
     set_window_icon(window)
     update_list()
     window.mainloop()
@@ -2017,6 +2327,9 @@ def main():
     
     # Load usage counts
     load_usage_counts()
+    
+    # Load usage notes
+    load_usage_notes()
     
     # Load 'Leave Raw' preferences
     load_leave_raw_preferences()
@@ -2096,6 +2409,17 @@ def show_file_paths():
     
     # Store entry widgets and their associated data
     entries = {}
+    
+    def update_path_status(config_key, entry_widget, status_widget):
+        """Update the status indicator for a path entry."""
+        path = entry_widget.get().strip()
+        if path:
+            exists = os.path.exists(path)
+            status_text = f"Exists: {'Yes' if exists else 'No'}"
+            status_color = "#4CAF50" if exists else "#F44336"
+            status_widget.configure(text=status_text, text_color=status_color)
+        else:
+            status_widget.configure(text="No path specified", text_color="orange")
     
     for i, path_config in enumerate(path_configs):
         # Main container for each path
@@ -2214,17 +2538,6 @@ def show_file_paths():
         anchor="w"
     )
     current_dir_status.pack(anchor="w", pady=(2, 0))
-    
-    def update_path_status(config_key, entry_widget, status_widget):
-        """Update the status indicator for a path entry."""
-        path = entry_widget.get().strip()
-        if path:
-            exists = os.path.exists(path)
-            status_text = f"Exists: {'Yes' if exists else 'No'}"
-            status_color = "#4CAF50" if exists else "#F44336"
-            status_widget.configure(text=status_text, text_color=status_color)
-        else:
-            status_widget.configure(text="No path specified", text_color="orange")
     
     # Buttons frame
     btn_frame = ctk.CTkFrame(paths_dialog, fg_color="transparent")
@@ -2462,6 +2775,230 @@ def save_usage_counts():
         log_message(f"Error saving usage counts: {e}")
         return False
 
+def save_usage_notes():
+    """Save macro usage notes to a separate JSON file."""
+    global macro_data_file_path, macro_usage_notes
+    if not macro_data_file_path:
+        return False
+    
+    # Create the notes file path in the same directory as the macro data file
+    notes_file_path = os.path.join(os.path.dirname(macro_data_file_path), "macro_usage_notes.json")
+    
+    try:
+        # Convert tuple keys to strings for JSON serialization
+        serializable_notes = {}
+        for key, note_data in macro_usage_notes.items():
+            # Use a separator unlikely to appear in category or macro names
+            serializable_key = f"{key[0]}|||{key[1]}"
+            serializable_notes[serializable_key] = note_data
+            
+        with open(notes_file_path, 'w') as f:
+            json.dump(serializable_notes, f, indent=4)
+        return True
+    except Exception as e:
+        log_message(f"Error saving usage notes: {e}")
+        return False
+
+def add_undo_action(action_type, action_data):
+    """Add an action to the undo stack."""
+    global undo_stack, redo_stack, max_undo_steps
+    
+    # Clear redo stack when new action is performed
+    redo_stack.clear()
+    
+    # Add action to undo stack
+    undo_stack.append({
+        'type': action_type,
+        'data': action_data,
+        'timestamp': datetime.now().isoformat()
+    })
+    
+    # Limit undo stack size
+    if len(undo_stack) > max_undo_steps:
+        undo_stack.pop(0)
+    
+    log_message(f"Added undo action: {action_type}")
+
+def undo_last_action():
+    """Undo the last action."""
+    global undo_stack, redo_stack
+    
+    if not undo_stack:
+        return False
+    
+    # Get the last action
+    action = undo_stack.pop()
+    
+    try:
+        if action['type'] == 'add_macro':
+            # Undo adding a macro
+            macro_key = action['data']['macro_key']
+            if macro_key in macros_dict:
+                del macros_dict[macro_key]
+            # Remove from data file
+            data = load_macro_data()
+            macro_id = get_macro_by_name(macro_key[1], get_category_by_name(macro_key[0]))
+            if macro_id:
+                delete_macro_from_data(macro_id)
+            
+            # Add to redo stack
+            redo_stack.append({
+                'type': 'delete_macro',
+                'data': action['data'],
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        elif action['type'] == 'edit_macro':
+            # Undo editing a macro
+            old_data = action['data']['old_data']
+            new_data = action['data']['new_data']
+            
+            # Restore old data
+            macros_dict[old_data['macro_key']] = old_data['content']
+            data = load_macro_data()
+            macro_id = get_macro_by_name(new_data['macro_key'][1], get_category_by_name(new_data['macro_key'][0]))
+            if macro_id:
+                update_macro_in_data(macro_id, get_category_by_name(old_data['macro_key'][0]), 
+                                   old_data['macro_key'][1], old_data['content'])
+            
+            # Restore old usage notes if they existed
+            if 'old_notes' in old_data:
+                macro_usage_notes[old_data['macro_key']] = old_data['old_notes']
+            elif old_data['macro_key'] in macro_usage_notes:
+                del macro_usage_notes[old_data['macro_key']]
+            
+            # Add to redo stack
+            redo_stack.append({
+                'type': 'edit_macro',
+                'data': {
+                    'old_data': new_data,
+                    'new_data': old_data
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        elif action['type'] == 'delete_macro':
+            # Undo deleting a macro
+            macro_data = action['data']
+            macro_key = macro_data['macro_key']
+            
+            # Restore macro
+            macros_dict[macro_key] = macro_data['content']
+            add_macro_to_data(get_category_by_name(macro_key[0]), macro_key[1], macro_data['content'])
+            
+            # Restore usage notes if they existed
+            if 'notes' in macro_data:
+                macro_usage_notes[macro_key] = macro_data['notes']
+            
+            # Add to redo stack
+            redo_stack.append({
+                'type': 'add_macro',
+                'data': action['data'],
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        elif action['type'] == 'edit_notes':
+            # Undo editing usage notes
+            old_notes = action['data']['old_notes']
+            macro_key = action['data']['macro_key']
+            
+            if old_notes:
+                macro_usage_notes[macro_key] = old_notes
+            elif macro_key in macro_usage_notes:
+                del macro_usage_notes[macro_key]
+            
+            # Add to redo stack
+            redo_stack.append({
+                'type': 'edit_notes',
+                'data': action['data'],
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        # Save changes
+        save_usage_notes()
+        
+        # Update UI
+        if update_list_func:
+            update_list_func()
+        
+        log_message(f"Undid action: {action['type']}")
+        return True
+        
+    except Exception as e:
+        log_message(f"Error undoing action: {e}")
+        return False
+
+def redo_last_action():
+    """Redo the last undone action."""
+    global undo_stack, redo_stack
+    
+    if not redo_stack:
+        return False
+    
+    # Get the last redo action
+    action = redo_stack.pop()
+    
+    try:
+        if action['type'] == 'add_macro':
+            # Redo adding a macro
+            macro_data = action['data']
+            macro_key = macro_data['macro_key']
+            macros_dict[macro_key] = macro_data['content']
+            add_macro_to_data(get_category_by_name(macro_key[0]), macro_key[1], macro_data['content'])
+            
+            if 'notes' in macro_data:
+                macro_usage_notes[macro_key] = macro_data['notes']
+            
+        elif action['type'] == 'delete_macro':
+            # Redo deleting a macro
+            macro_key = action['data']['macro_key']
+            if macro_key in macros_dict:
+                del macros_dict[macro_key]
+            macro_id = get_macro_by_name(macro_key[1], get_category_by_name(macro_key[0]))
+            if macro_id:
+                delete_macro_from_data(macro_id)
+            
+        elif action['type'] == 'edit_macro':
+            # Redo editing a macro
+            old_data = action['data']['old_data']
+            new_data = action['data']['new_data']
+            
+            macros_dict[new_data['macro_key']] = new_data['content']
+            data = load_macro_data()
+            macro_id = get_macro_by_name(old_data['macro_key'][1], get_category_by_name(old_data['macro_key'][0]))
+            if macro_id:
+                update_macro_in_data(macro_id, get_category_by_name(new_data['macro_key'][0]), 
+                                   new_data['macro_key'][1], new_data['content'])
+            
+            if 'new_notes' in new_data:
+                macro_usage_notes[new_data['macro_key']] = new_data['new_notes']
+            elif new_data['macro_key'] in macro_usage_notes:
+                del macro_usage_notes[new_data['macro_key']]
+            
+        elif action['type'] == 'edit_notes':
+            # Redo editing usage notes
+            new_notes = action['data']['new_notes']
+            macro_key = action['data']['macro_key']
+            
+            if new_notes:
+                macro_usage_notes[macro_key] = new_notes
+            elif macro_key in macro_usage_notes:
+                del macro_usage_notes[macro_key]
+        
+        # Save changes
+        save_usage_notes()
+        
+        # Update UI
+        if update_list_func:
+            update_list_func()
+        
+        log_message(f"Redid action: {action['type']}")
+        return True
+        
+    except Exception as e:
+        log_message(f"Error redoing action: {e}")
+        return False
+
 def load_usage_counts():
     """Load macro usage counts from a separate JSON file."""
     global macro_data_file_path, macro_usage_counts
@@ -2485,6 +3022,30 @@ def load_usage_counts():
                 macro_usage_counts[(parts[0], parts[1])] = count
     except Exception as e:
         log_message(f"Error loading usage counts: {e}")
+
+def load_usage_notes():
+    """Load macro usage notes from a separate JSON file."""
+    global macro_data_file_path, macro_usage_notes
+    if not macro_data_file_path:
+        return
+    
+    notes_file_path = os.path.join(os.path.dirname(macro_data_file_path), "macro_usage_notes.json")
+    
+    if not os.path.exists(notes_file_path):
+        return  # No notes data yet
+    
+    try:
+        with open(notes_file_path, 'r') as f:
+            serializable_notes = json.load(f)
+            
+        # Convert string keys back to tuples
+        macro_usage_notes.clear()
+        for key_str, note_data in serializable_notes.items():
+            parts = key_str.split("|||", 1)
+            if len(parts) == 2:
+                macro_usage_notes[(parts[0], parts[1])] = note_data
+    except Exception as e:
+        log_message(f"Error loading usage notes: {e}")
 
 def delete_all_usage_counts():
     """Delete all macro usage counts after confirmation."""
@@ -3087,7 +3648,7 @@ def sync_files_with_config():
 
 # Add help for the configuration and dependencies
 def show_about_config():
-    """Show a popup with information about the configuration files."""
+    """Show a sleek markdown-style popup with information about the configuration files."""
     config = load_config()
     try:
         import google.cloud.storage
@@ -3095,46 +3656,150 @@ def show_about_config():
     except (ImportError, AttributeError):
         gcs_version = "Not available"
 
-    about_text = f"""
-    MacroMouse Configuration
+    # Create a custom styled dialog
+    about_dialog = ctk.CTkToplevel()
+    about_dialog.title("About Configuration")
+    about_dialog.geometry("800x700")
+    about_dialog.minsize(700, 600)
+    about_dialog.grab_set()
+    
+    # Header
+    header_frame = ctk.CTkFrame(about_dialog, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text="MacroMouse Configuration",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content frame with scroll
+    content_frame = ctk.CTkScrollableFrame(about_dialog)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    # Function to create styled sections
+    def create_section(title, content, icon="📁"):
+        section_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        section_frame.pack(fill="x", pady=(0, 20))
+        
+        # Section header
+        header = ctk.CTkLabel(
+            section_frame,
+            text=f"{icon} {title}",
+            font=("Segoe UI", 16, "bold"),
+            text_color="#00BFFF",
+            anchor="w"
+        )
+        header.pack(anchor="w", pady=(0, 10))
+        
+        # Section content
+        content_label = ctk.CTkLabel(
+            section_frame,
+            text=content,
+            font=("Segoe UI", 12),
+            text_color="white",
+            anchor="w",
+            justify="left",
+            wraplength=750
+        )
+        content_label.pack(anchor="w", padx=(20, 0))
+    
+    # File Paths Section
+    paths_content = f"""Config File: {config_file_path}
+Macro Data File: {macro_data_file_path}
+Log File: {log_file_path}
+Reference File: {reference_file_path or 'Not set'}
 
-    - Config File: {config_file_path}
-    - Macro Data File: {macro_data_file_path}
-    - Log File: {log_file_path}
-    - Reference File: {reference_file_path or 'Not set'}
+To change these paths, go to File > Data File > Configure File Paths."""
+    
+    create_section("File Paths", paths_content, "📂")
+    
+    # Dependencies Section
+    deps_content = f"""customtkinter: {ctk.__version__}
+pystray: version not available
+Pillow: {Image.__version__}
+requests: {requests.__version__}
+google-cloud-storage: {gcs_version}
 
-    To change these paths, go to File > Data File > Configure File Paths.
+To install all dependencies, run:
+pip install customtkinter pystray pillow requests google-cloud-storage"""
+    
+    create_section("Dependencies", deps_content, "🔧")
+    
+    # Features Section
+    features_content = """• Paper Icon System - Visual indicators for usage notes
+• Auto-adjusting Text Areas - Dynamic sizing based on content
+• Comprehensive Undo/Redo - Ctrl+Z/Y for any action
+• Usage Notes - Track how and when you use macros
+• Keyboard Shortcuts - Full Windows standard support
+• Cloud Sync - Firebase integration for data backup
+• Category Management - Organize macros with descriptions
+• Placeholder System - Dynamic content with user input
+• System Tray - Minimize to tray with quick access
+• Dark Theme - Modern, sleek interface"""
+    
+    create_section("Features", features_content, "✨")
+    
+    # Troubleshooting Section
+    troubleshooting_content = """1. Invalid JWT Signature
+   Issue: The service account key for Firebase was invalid.
+   Resolution: Replaced with a new service account key.
 
-    Dependencies:
-    - customtkinter: {ctk.__version__}
-    - pystray: version not available
-    - Pillow: {Image.__version__}
-    - requests: {requests.__version__}
-    - google-cloud-storage: {gcs_version}
+2. Google Cloud Storage not installed
+   Issue: The Python environment was missing the package.
+   Resolution: Installed the package and configured the IDE to use the correct Python environment.
 
-    To install all dependencies, run:
-    pip install customtkinter pystray pillow requests google-cloud-storage
+3. 404 Not Found
+   Issue: The Firebase Storage bucket name was incorrect.
+   Resolution: Corrected the bucket name in the script.
 
-    ---
-    Troubleshooting Summary:
+4. Git Error
+   Issue: A secret file was preventing pushing to the remote repository.
+   Resolution: Removed the secret file from the git history and added it to .gitignore."""
+    
+    create_section("Troubleshooting", troubleshooting_content, "🔍")
+    
+    # Keyboard Shortcuts Section
+    shortcuts_content = """Global Shortcuts:
+• Ctrl+Z - Undo any action
+• Ctrl+Y - Redo any action
 
-    1. Invalid JWT Signature:
-       - Issue: The service account key for Firebase was invalid.
-       - Resolution: Replaced with a new service account key.
+Text Editing:
+• Ctrl+C - Copy selected text
+• Ctrl+V - Paste from clipboard
+• Ctrl+X - Cut selected text
+• Ctrl+A - Select all text
 
-    2. Google Cloud Storage not installed:
-       - Issue: The Python environment was missing the package.
-       - Resolution: Installed the package and configured the IDE to use the correct Python environment.
-
-    3. 404 Not Found:
-       - Issue: The Firebase Storage bucket name was incorrect.
-       - Resolution: Corrected the bucket name in the script.
-
-    4. Git Error:
-       - Issue: A secret file was preventing pushing to the remote repository.
-       - Resolution: Removed the secret file from the git history and added it to .gitignore.
-    """
-    messagebox.showinfo("About Configuration", about_text)
+Macro Management:
+• Double-click macro - Copy to clipboard
+• Paper icon - Edit usage notes
+• Hover over paper icon - View notes preview"""
+    
+    create_section("Keyboard Shortcuts", shortcuts_content, "⌨️")
+    
+    # Close button
+    close_btn = ctk.CTkButton(
+        about_dialog,
+        text="Close",
+        command=about_dialog.destroy,
+        height=35,
+        width=100,
+        fg_color="#1f538d"
+    )
+    close_btn.pack(pady=(0, 15))
+    
+    # Center the dialog
+    about_dialog.update_idletasks()
+    width = about_dialog.winfo_width()
+    height = about_dialog.winfo_height()
+    x = (about_dialog.winfo_screenwidth() // 2) - (width // 2)
+    y = (about_dialog.winfo_screenheight() // 2) - (height // 2)
+    about_dialog.geometry(f"{width}x{height}+{x}+{y}")
+    
+    about_dialog.wait_window()
 
 # Add help for the placeholder feature
 def show_placeholder_help():
@@ -3345,6 +4010,168 @@ def show_new_category_dialog(parent=None):
     dialog.wait_window()
     return result if result["name"] else None
 
+def show_usage_notes_dialog(macro_key, parent=None, update_list_func=None):
+    """Show dialog to edit usage notes for a macro."""
+    global macro_usage_notes
+    
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title(f"Usage Notes - {macro_key[1]}")
+    dialog.geometry("600x500")
+    dialog.minsize(500, 400)
+    dialog.grab_set()
+    
+    # Header
+    header_frame = ctk.CTkFrame(dialog, fg_color="#181C22", height=44, corner_radius=0)
+    header_frame.pack(fill="x", side="top")
+    
+    title_label = ctk.CTkLabel(
+        header_frame,
+        text=f"Usage Notes: {macro_key[1]}",
+        font=("Segoe UI", 15, "bold"),
+        text_color="white",
+        anchor="w"
+    )
+    title_label.pack(side="left", padx=(15, 0), pady=6)
+    
+    # Content frame
+    content_frame = ctk.CTkFrame(dialog)
+    content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+    
+    # Notes label
+    notes_label = ctk.CTkLabel(
+        content_frame,
+        text="Usage Notes:",
+        font=("Segoe UI", 12, "bold"),
+        anchor="w"
+    )
+    notes_label.pack(anchor="w", pady=(0, 5))
+    
+    # Auto-adjusting text area
+    notes_text = ctk.CTkTextbox(content_frame, wrap="word", font=("Segoe UI", 11))
+    notes_text.pack(fill="both", expand=True, pady=(0, 15))
+    
+    # Load existing notes
+    current_notes = macro_usage_notes.get(macro_key, {}).get("notes", "")
+    notes_text.insert("1.0", current_notes)
+    
+    # Auto-resize function
+    def adjust_text_height(event=None):
+        """Auto-adjust text area height based on content."""
+        content = notes_text.get("1.0", "end-1c")
+        lines = content.count('\n') + 1
+        min_height = 100
+        max_height = 300
+        line_height = 20  # Approximate line height
+        new_height = max(min_height, min(max_height, lines * line_height))
+        notes_text.configure(height=new_height)
+    
+    # Bind text changes to auto-resize
+    notes_text.bind("<KeyRelease>", adjust_text_height)
+    notes_text.bind("<ButtonRelease-1>", adjust_text_height)
+    
+    # Add keyboard shortcuts for text editing
+    def handle_keyboard_shortcuts(event):
+        """Handle standard keyboard shortcuts for text editing."""
+        if event.state & 4:  # Ctrl key is pressed
+            if event.keysym == 'c':
+                try:
+                    notes_text.clipboard_clear()
+                    notes_text.clipboard_append(notes_text.selection_get())
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'v':
+                try:
+                    notes_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                notes_text.insert("insert", notes_text.clipboard_get())
+                return "break"
+            elif event.keysym == 'x':
+                try:
+                    notes_text.clipboard_clear()
+                    notes_text.clipboard_append(notes_text.selection_get())
+                    notes_text.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass  # No selection
+                return "break"
+            elif event.keysym == 'a':
+                notes_text.tag_add("sel", "1.0", "end")
+                return "break"
+            elif event.keysym == 'z':
+                try:
+                    notes_text.edit_undo()
+                except tk.TclError:
+                    pass  # Nothing to undo
+                return "break"
+            elif event.keysym == 'y':
+                try:
+                    notes_text.edit_redo()
+                except tk.TclError:
+                    pass  # Nothing to redo
+                return "break"
+        return None
+    
+    notes_text.bind("<Key>", handle_keyboard_shortcuts)
+    
+    # Initial height adjustment
+    dialog.after(100, adjust_text_height)
+    
+    # Buttons
+    btn_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    btn_frame.pack(fill="x", pady=(0, 10))
+    
+    def save_notes():
+        notes_content = notes_text.get("1.0", "end-1c")
+        
+        # Store old notes for undo
+        old_notes = macro_usage_notes.get(macro_key, {}).get("notes", "")
+        
+        # Update notes data
+        macro_usage_notes[macro_key] = {
+            "notes": notes_content,
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        # Save to file
+        if save_usage_notes():
+            # Add undo action
+            add_undo_action('edit_notes', {
+                'macro_key': macro_key,
+                'old_notes': old_notes if old_notes else None,
+                'new_notes': notes_content if notes_content else None
+            })
+            
+            log_message(f"Saved usage notes for macro '{macro_key[1]}'")
+            dialog.destroy()
+            # Refresh the macro list to update paper icon colors
+            if update_list_func:
+                update_list_func()
+        else:
+            messagebox.showerror("Error", "Failed to save usage notes.")
+    
+    def cancel_edit():
+        dialog.destroy()
+    
+    save_btn = ctk.CTkButton(btn_frame, text="Save", command=save_notes)
+    save_btn.pack(side="left", padx=(0, 10))
+    
+    cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=cancel_edit, fg_color="red")
+    cancel_btn.pack(side="left")
+    
+    # Center dialog
+    dialog.update_idletasks()
+    width = dialog.winfo_width()
+    height = dialog.winfo_height()
+    x = (dialog.winfo_screenwidth() // 2) - (width // 2)
+    y = (dialog.winfo_screenheight() // 2) - (height // 2)
+    dialog.geometry(f"{width}x{height}+{x}+{y}")
+    
+    # Set focus to text area
+    notes_text.focus_set()
+    
+    dialog.wait_window()
+
 def create_default_icon():
     """Create a default icon if none exists."""
     # Create a 64x64 image with a blue background
@@ -3502,6 +4329,39 @@ def update_last_used_macro(category, name):
     last_used_macro = (category, name)
     if tray_icon:
         tray_icon.menu = create_tray_menu()
+
+def show_undo_notification(message):
+    """Show a brief notification for undo/redo actions."""
+    popup = ctk.CTkToplevel()
+    popup.title("Notification")
+    popup.geometry("300x80")
+    popup.resizable(False, False)
+    popup.attributes("-topmost", True)
+    popup.overrideredirect(True)  # Remove window border
+    
+    # Main frame with dark background
+    main_frame = ctk.CTkFrame(popup, fg_color="#181C22", corner_radius=12)
+    main_frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+    # Message
+    message_label = ctk.CTkLabel(
+        main_frame,
+        text=message,
+        font=("Segoe UI", 14, "bold"),
+        text_color="white"
+    )
+    message_label.pack(expand=True)
+
+    # Center the popup on the screen
+    popup.update_idletasks()
+    width = popup.winfo_width()
+    height = popup.winfo_height()
+    x = (popup.winfo_screenwidth() // 2) - (width // 2)
+    y = (popup.winfo_screenheight() // 2) - (height // 2)
+    popup.geometry(f"{width}x{height}+{x}+{y}")
+    
+    # Auto-close after 1.5 seconds
+    popup.after(1500, popup.destroy)
 
 def show_tray_macro_popup(macro_name, macro_content):
     """Show a sleek, always-on-top popup for tray macro actions."""
