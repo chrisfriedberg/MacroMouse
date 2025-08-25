@@ -1,6 +1,6 @@
 {
     "Firebase|||Firebase: DEV - Deploy Rules (ONLY)": {
-        "notes": "This is a test for the notes",
-        "last_updated": "2025-08-24T23:26:26.775668"
+        "notes": "Deploy rules to DEV only\n\nFirebase Rules \u2014 Why Push Rules Only\n\n\ud83d\udd12Service Account / IAM \u2013 New roles, revoked perms, Cloud Function access changes.\n\ud83d\udd12Schema Changes \u2013 New fields/collections (rules must match new paths).\n\ud83d\udd12 Auth / Claims \u2013 Add/remove custom claims (admin, role, etc.).\n\ud83d\udd12 Access Policies \u2013 Tighten/relax visibility (owner-only, familyVisible, aiVisible). \n\ud83d\udd12 Env Sync \u2013 Align DEV/PROD or multiple projects.\n\ud83d\udd12 Bug / Exploit Fixes \u2013 Patch accidental open access without full deploy.",
+        "last_updated": "2025-08-25T17:35:01.388608"
     }
 }

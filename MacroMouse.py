@@ -18,6 +18,7 @@ import functools
 import tempfile
 import requests
 import time
+import socket
 
 # --- GLOBALS ---
 log_file_path = None
@@ -64,6 +65,51 @@ def log_message(message):
         except Exception as e:
             print(f"Warning: could not write log file '{log_file_path}': {e}")
 
+def log_important_event(event_type, details=""):
+    """Log only important events as requested by user."""
+    computer_name = socket.gethostname()
+    
+    if event_type == "app_opened":
+        log_message(f"APP OPENED - Computer: {computer_name}")
+    elif event_type == "macro_used":
+        log_message(f"MACRO USED - Computer: {computer_name} - Macro: {details}")
+    elif event_type == "macro_created":
+        log_message(f"MACRO CREATED - Computer: {computer_name} - Macro: {details}")
+    elif event_type == "category_created":
+        log_message(f"CATEGORY CREATED - Computer: {computer_name} - Category: {details}")
+    elif event_type == "app_closed":
+        log_message(f"APP CLOSED - Computer: {computer_name}")
+
+def view_log():
+    """Open the log file in the default text editor."""
+    global log_file_path
+    if log_file_path and os.path.exists(log_file_path):
+        try:
+            if sys.platform.startswith('win32'):
+                os.startfile(log_file_path)
+            elif sys.platform.startswith('darwin'):
+                subprocess.run(['open', log_file_path], check=True)
+            else:
+                subprocess.run(['xdg-open', log_file_path], check=True)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open log file:\n{e}")
+    else:
+        messagebox.showerror("Error", "Log file not found.")
+
+def clear_log():
+    """Clear the log file after confirmation."""
+    global log_file_path
+    if log_file_path and os.path.exists(log_file_path):
+        if messagebox.askyesno("Clear Log", "Are you sure you want to clear the log file? This action cannot be undone."):
+            try:
+                with open(log_file_path, "w", encoding="utf-8") as logf:
+                    logf.write(f"[{get_log_timestamp()}] Log file cleared by user.\n")
+                messagebox.showinfo("Success", "Log file has been cleared.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not clear log file:\n{e}")
+    else:
+        messagebox.showerror("Error", "Log file not found.")
+
 # --- CONFIG MANAGEMENT ---
 def load_config():
     """Load configuration from config.json"""
@@ -74,7 +120,7 @@ def load_config():
         with open(config_file_path, 'r') as f:
             return json.load(f)
     except Exception as e:
-        log_message(f"Error loading config: {e}")
+        print(f"Error loading config: {e}")
         return {}
 
 def save_config(config_data):
@@ -87,7 +133,7 @@ def save_config(config_data):
             json.dump(config_data, f, indent=4)
         return True
     except Exception as e:
-        log_message(f"Error saving config: {e}")
+        print(f"Error saving config: {e}")
         return False
 
 def save_config_to_path(config_data, file_path):
@@ -99,7 +145,7 @@ def save_config_to_path(config_data, file_path):
             json.dump(config_data, f, indent=4)
         return True
     except Exception as e:
-        log_message(f"Error saving config to {file_path}: {e}")
+        print(f"Error saving config to {file_path}: {e}")
         return False
 
 def change_app_icon(window):
@@ -119,7 +165,7 @@ def change_app_icon(window):
         window.iconbitmap(icon_path)
         config['icon_path'] = icon_path
         if save_config(config):
-            log_message(f"Changed application icon to: {icon_path}")
+            pass
         else:
             messagebox.showerror("Error", "Failed to save icon configuration")
     except Exception as e:
@@ -139,11 +185,7 @@ def load_macro_data():
     """Load the structured macro data from XML file."""
     global macro_data_file_path
     
-    # Debug log
-    log_message(f"Attempting to load macro data from: {macro_data_file_path}")
-    
     if not macro_data_file_path or not os.path.exists(macro_data_file_path):
-        log_message(f"Macro data file does not exist at: {macro_data_file_path}")
         return {
             "version": "1.0",
             "categories": {},
@@ -196,10 +238,9 @@ def load_macro_data():
         else:
             data["category_order"] = list(data["categories"].keys())
         
-        log_message(f"Successfully loaded macro data with {len(data['categories'])} categories and {len(data['macros'])} macros")
         return data
     except Exception as e:
-        log_message(f"Error loading macro data: {e}")
+        print(f"Error loading macro data: {e}")
         return {
             "version": "1.0",
             "categories": {},
@@ -212,7 +253,7 @@ def save_macro_data(data, category_order=None):
     global macro_data_file_path
     
     if not macro_data_file_path:
-        log_message("Cannot save macro data: File path is not set")
+        print("Cannot save macro data: File path is not set")
         return False
         
     # Ensure directory exists
@@ -220,9 +261,8 @@ def save_macro_data(data, category_order=None):
     if not os.path.exists(data_dir):
         try:
             os.makedirs(data_dir, exist_ok=True)
-            log_message(f"Created data directory: {data_dir}")
         except Exception as e:
-            log_message(f"Error creating data directory: {e}")
+            print(f"Error creating data directory: {e}")
             return False
             
     try:
@@ -273,13 +313,11 @@ def save_macro_data(data, category_order=None):
             backup_path = f"{macro_data_file_path}.bak"
             import shutil
             shutil.copy2(macro_data_file_path, backup_path)
-            log_message(f"Created backup of macro data file at: {backup_path}")
             
         tree.write(macro_data_file_path, encoding="utf-8", xml_declaration=True)
-        log_message(f"Successfully saved macro data to: {macro_data_file_path}")
         return True
     except Exception as e:
-        log_message(f"Error saving macro data: {e}")
+        print(f"Error saving macro data: {e}")
         return False
 
 def create_new_category(name, description=""):
@@ -293,6 +331,7 @@ def create_new_category(name, description=""):
         "description": description
     }
     if save_macro_data(data):
+        log_important_event("category_created", name)
         return cat_id
     return None
 
@@ -309,6 +348,9 @@ def add_macro_to_data(category_id, name, content):
         "version": 1
     }
     if save_macro_data(data):
+        # Get category name for logging
+        cat_name = data["categories"].get(category_id, {}).get("name", "Unknown")
+        log_important_event("macro_created", f"{cat_name}|||{name}")
         return macro_id
     return None
 
@@ -500,7 +542,7 @@ def copy_macro(macro_key):
             
             # Ensure we're copying plain text
             pyperclip.copy(content)
-            log_message(f"Copied macro '{macro_key[1]}' to clipboard.")
+            log_important_event("macro_used", f"{macro_key[0]}|||{macro_key[1]}")
             print(f"Copied to clipboard: {macro_key[1]}")
             
             # Update usage count
@@ -516,9 +558,8 @@ def copy_macro(macro_key):
         except Exception as e:
             print(f"Error: {e}")
             messagebox.showerror("Clipboard Error", f"Could not copy to clipboard: {e}")
-            log_message(f"Clipboard error for macro '{macro_key[1]}': {e}")
     elif macro_key:
-        log_message(f"Attempted to copy non-existent macro: {macro_key}")
+        print(f"Attempted to copy non-existent macro: {macro_key}")
         messagebox.showerror("Error", f"Macro '{macro_key[1]}' not found in current data.")
 
 def show_placeholder_dialog(macro_name, placeholders):
@@ -728,8 +769,6 @@ def open_macro_file():
         messagebox.showerror("Error", "Cannot open: Macro data file path is not set.")
         return
         
-    log_message(f"Attempting to open macro data file: {macro_data_file_path}")
-    
     # Check if file exists
     if not os.path.exists(macro_data_file_path):
         # Ask if user wants to create it
@@ -772,11 +811,9 @@ def open_macro_file():
             tree = ET.ElementTree(root)
             tree.write(macro_data_file_path, encoding="utf-8", xml_declaration=True)
             
-            log_message(f"Created new empty macro data file at: {macro_data_file_path}")
             messagebox.showinfo("Success", f"Created new XML data file at:\n{macro_data_file_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Cannot create macro data file at {macro_data_file_path}:\n{e}")
-            log_message(f"Error creating macro data file: {e}")
             return
 
     # Try to open the file
@@ -787,10 +824,8 @@ def open_macro_file():
             subprocess.run(['open', macro_data_file_path], check=True)
         else:
             subprocess.run(['xdg-open', macro_data_file_path], check=True)
-        log_message("Successfully launched default editor for macro data file.")
     except Exception as e:
         messagebox.showerror("Error Opening File", f"An error occurred while trying to open the macro data file:\n{e}")
-        log_message(f"Error opening macro data file: {e}")
 
 def open_macro_file_location():
     """Opens the folder containing the macro data file."""
@@ -811,10 +846,8 @@ def open_macro_file_location():
             subprocess.run(['open', folder_path], check=True)
         else:
             subprocess.run(['xdg-open', folder_path], check=True)
-        log_message(f"Opened folder containing macro data file: {folder_path}")
     except Exception as e:
         messagebox.showerror("Error Opening Folder", f"An error occurred while trying to open the folder:\n{e}")
-        log_message(f"Error opening folder: {e}")
 
 def backup_data_files_folder():
     """Creates a zip backup of the entire data files folder."""
@@ -858,8 +891,6 @@ def backup_data_files_folder():
                     arcname = os.path.relpath(file_path, data_dir)
                     zipf.write(file_path, arcname)
 
-        log_message(f"Created backup of data files at: {backup_path}")
-        
         # Show simple message with backup location
         backup_dir = os.path.dirname(backup_path)
         msg = f"Data Files backed up to:\n{backup_path}"
@@ -874,11 +905,10 @@ def backup_data_files_folder():
             else:
                 subprocess.run(['xdg-open', backup_dir], check=True)
         except Exception as e:
-            log_message(f"Error opening backup location: {e}")
+            pass
             
     except Exception as e:
         messagebox.showerror("Backup Error", f"An error occurred while creating the backup:\n{e}")
-        log_message(f"Error creating backup: {e}")
 
 def restore_data_file():
     """Allows users to restore data files from backups."""
@@ -975,12 +1005,10 @@ def restore_data_file():
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 import shutil
                 shutil.copy2(file_path, target_path)
-                log_message(f"Restored XML file from {file_path} to {target_path}")
                 styled_showinfo("Restore Complete", f"Successfully restored data file from:\n{file_path}", parent=restore_window)
                 restore_window.destroy()
             except Exception as e:
                 styled_showerror("Restore Error", f"An error occurred during restore:\n{e}", parent=restore_window)
-                log_message(f"Restore error: {e}")
         
         else:
             # Zip backup
@@ -1011,12 +1039,10 @@ def restore_data_file():
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall(target_dir)
                 
-                log_message(f"Restored data files from zip: {zip_path} to {target_dir}")
                 styled_showinfo("Restore Complete", f"Successfully restored data files from:\n{zip_path}", parent=restore_window)
                 restore_window.destroy()
             except Exception as e:
                 styled_showerror("Restore Error", f"An error occurred during restore:\n{e}", parent=restore_window)
-                log_message(f"Restore error: {e}")
     
     restore_btn = ctk.CTkButton(
         btn_frame,
@@ -1697,7 +1723,7 @@ def create_category_window(update_list_func, category_dropdown):
                 category_dropdown.configure(values=get_categories())
                 category_dropdown.set("All")
                 update_list_func()
-                log_message(f"Deleted category '{cat_name}' and its macros.")
+
             def move_to_uncategorized():
                 unc_id = get_category_by_name("Uncategorized") or create_new_category("Uncategorized")
                 for mid in associated_macros:
@@ -1709,7 +1735,7 @@ def create_category_window(update_list_func, category_dropdown):
                 category_dropdown.configure(values=get_categories())
                 category_dropdown.set("All")
                 update_list_func()
-                log_message(f"Moved macros from '{cat_name}' to Uncategorized and deleted category.")
+
             del_btn = ctk.CTkButton(btn_frame, text="Delete Macros", fg_color="red", command=delete_macros)
             del_btn.pack(side="left", padx=10)
             move_btn = ctk.CTkButton(btn_frame, text="Move to Uncategorized", command=move_to_uncategorized)
@@ -1724,7 +1750,7 @@ def create_category_window(update_list_func, category_dropdown):
                 category_dropdown.configure(values=get_categories())
                 category_dropdown.set("All")
                 update_list_func()
-                log_message(f"Deleted category: {cat_id}")
+
 
     def sort_alphabetically():
         unc_id = [cat_id for cat_id in category_order if categories[cat_id]["name"] == "Uncategorized"][0]
@@ -1867,6 +1893,11 @@ def create_macro_window():
     tools_menu.add_command(label="Delete All Macro Usage Counts", command=delete_all_usage_counts)
     tools_menu.add_separator()
     tools_menu.add_command(label="Cloud Sync", command=show_cloud_sync_dialog)
+    # Log submenu
+    log_menu = tk.Menu(tools_menu, tearoff=0)
+    tools_menu.add_cascade(label="Log", menu=log_menu)
+    log_menu.add_command(label="View Log", command=view_log)
+    log_menu.add_command(label="Clear Log", command=clear_log)
     # Theme submenu
     theme_menu = tk.Menu(tools_menu, tearoff=0)
     tools_menu.add_cascade(label="Theme", menu=theme_menu)
@@ -1888,10 +1919,8 @@ def create_macro_window():
                     subprocess.run(['open', readme_path], check=True)
                 else:
                     subprocess.run(['xdg-open', readme_path], check=True)
-                log_message(f"Opened README.md file")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open README.md file:\n{e}")
-                log_message(f"Error opening README.md: {e}")
         else:
             messagebox.showerror("Error", "README.md file not found in application directory.")
             
@@ -2188,13 +2217,9 @@ def create_macro_window():
             )
             paper_icon.pack(side="right", padx=(5, 10))
             
-            # Add tooltip for paper icon
+            # Add tooltip for paper icon only if there are notes
             if current_notes:
-                # Truncate notes for tooltip (first 100 chars)
-                tooltip_text = current_notes[:100] + "..." if len(current_notes) > 100 else current_notes
-                CTkTooltip(paper_icon, f"Usage Notes:\n{tooltip_text}")
-            else:
-                CTkTooltip(paper_icon, "Click to add usage notes")
+                CTkTooltip(paper_icon, f"Usage Notes:\n{current_notes}")
             
             # Add all widgets to the list for tracking
             macro_list_items.append(macro_frame)
@@ -2276,8 +2301,7 @@ def create_macro_window():
     update_list()
     window.mainloop()
     
-    log_message("Application window closed.")
-    log_message("="*20 + " MacroMouse Session End " + "="*20 + "\n")
+    log_important_event("app_closed")
 
     # Store a reference to the update_list function
     update_list_func = update_list
@@ -2314,11 +2338,7 @@ def main():
         config_file_path = default_config_file
     
     # Log startup information
-    log_message("="*20 + " MacroMouse Session Start " + "="*20)
-    log_message(f"App data directory: {app_data_dir}")
-    log_message(f"Macro data file: {macro_data_file_path}")
-    log_message(f"Log file: {log_file_path}")
-    log_message(f"Config file: {config_file_path}")
+    log_important_event("app_opened")
     
     # Initialize data if needed
     data = load_macro_data()
@@ -2772,7 +2792,7 @@ def save_usage_counts():
             json.dump(serializable_counts, f, indent=4)
         return True
     except Exception as e:
-        log_message(f"Error saving usage counts: {e}")
+        print(f"Error saving usage counts: {e}")
         return False
 
 def save_usage_notes():
@@ -2796,7 +2816,7 @@ def save_usage_notes():
             json.dump(serializable_notes, f, indent=4)
         return True
     except Exception as e:
-        log_message(f"Error saving usage notes: {e}")
+        print(f"Error saving usage notes: {e}")
         return False
 
 def add_undo_action(action_type, action_data):
@@ -2817,7 +2837,7 @@ def add_undo_action(action_type, action_data):
     if len(undo_stack) > max_undo_steps:
         undo_stack.pop(0)
     
-    log_message(f"Added undo action: {action_type}")
+    
 
 def undo_last_action():
     """Undo the last action."""
@@ -2921,11 +2941,10 @@ def undo_last_action():
         if update_list_func:
             update_list_func()
         
-        log_message(f"Undid action: {action['type']}")
         return True
         
     except Exception as e:
-        log_message(f"Error undoing action: {e}")
+        print(f"Error undoing action: {e}")
         return False
 
 def redo_last_action():
@@ -2992,11 +3011,10 @@ def redo_last_action():
         if update_list_func:
             update_list_func()
         
-        log_message(f"Redid action: {action['type']}")
         return True
         
     except Exception as e:
-        log_message(f"Error redoing action: {e}")
+        print(f"Error redoing action: {e}")
         return False
 
 def load_usage_counts():
@@ -3021,7 +3039,7 @@ def load_usage_counts():
             if len(parts) == 2:
                 macro_usage_counts[(parts[0], parts[1])] = count
     except Exception as e:
-        log_message(f"Error loading usage counts: {e}")
+        print(f"Error loading usage counts: {e}")
 
 def load_usage_notes():
     """Load macro usage notes from a separate JSON file."""
@@ -3045,7 +3063,7 @@ def load_usage_notes():
             if len(parts) == 2:
                 macro_usage_notes[(parts[0], parts[1])] = note_data
     except Exception as e:
-        log_message(f"Error loading usage notes: {e}")
+        print(f"Error loading usage notes: {e}")
 
 def delete_all_usage_counts():
     """Delete all macro usage counts after confirmation."""
@@ -3157,7 +3175,7 @@ def select_reference_file():
     config['reference_file'] = file_path
     reference_file_path = file_path
     if save_config(config):
-        log_message(f"Set reference file to: {file_path}")
+
         return True
     else:
         messagebox.showerror("Error", "Failed to save reference file configuration")
@@ -3225,10 +3243,8 @@ Best regards,
             reference_file_path = default_ref_path
             config['reference_file'] = default_ref_path
             save_config(config)
-            log_message(f"Created default reference file at: {default_ref_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Could not create default reference file:\n{e}")
-            log_message(f"Error creating default reference file: {e}")
             return
         
     # Try to open the file
@@ -3239,10 +3255,8 @@ Best regards,
             subprocess.run(['open', reference_file_path], check=True)
         else:
             subprocess.run(['xdg-open', reference_file_path], check=True)
-        log_message(f"Opened reference file: {reference_file_path}")
     except Exception as e:
         messagebox.showerror("Error Opening File", f"Could not open reference file:\n{e}")
-        log_message(f"Error opening reference file: {e}")
 
 def show_unresolved_tags_dialog(macro_name, unresolved_tags):
     """
@@ -3499,10 +3513,8 @@ def sync_files_with_config():
         bucket = client.bucket(bucket_name)
         # Test the connection by listing a few blobs
         blobs = list(bucket.list_blobs(max_results=1))
-        log_message(f"Cloud sync: Successfully connected to Firebase bucket: {bucket_name}")
     except Exception as e:
         error_msg = f"❌ Failed to connect to Firebase: {str(e)}"
-        log_message(f"Cloud sync error: {error_msg}")
         results.append(error_msg)
         return results
     
@@ -3529,7 +3541,7 @@ def sync_files_with_config():
             else:
                 return 0
         except Exception as e:
-            log_message(f"Cloud sync: Error getting remote timestamp for {firebase_path}: {str(e)}")
+    
             return 0
     
     def upload_file_with_metadata(local_path, firebase_path):
@@ -3548,11 +3560,10 @@ def sync_files_with_config():
             blob.metadata = metadata
             blob.upload_from_filename(local_path)
             
-            log_message(f"Cloud sync: Uploaded {os.path.basename(local_path)} with timestamp {current_timestamp}")
             return True
         except Exception as e:
-            log_message(f"Cloud sync: Upload failed for {os.path.basename(local_path)}: {str(e)}")
-            return False
+            pass
+        return False
     
     def download_file_with_metadata(firebase_path, local_path):
         """Download file and preserve metadata."""
@@ -3570,10 +3581,9 @@ def sync_files_with_config():
                 remote_timestamp = float(blob.metadata['last_modified'])
                 os.utime(local_path, (remote_timestamp, remote_timestamp))
             
-            log_message(f"Cloud sync: Downloaded {os.path.basename(local_path)}")
             return True
         except Exception as e:
-            log_message(f"Cloud sync: Download failed for {os.path.basename(local_path)}: {str(e)}")
+            pass
             return False
     
     # Get file paths from config
@@ -3601,7 +3611,7 @@ def sync_files_with_config():
             local_time_str = datetime.fromtimestamp(local_timestamp).strftime('%Y-%m-%d %H:%M:%S') if local_timestamp > 0 else "N/A"
             remote_time_str = datetime.fromtimestamp(remote_timestamp).strftime('%Y-%m-%d %H:%M:%S') if remote_timestamp > 0 else "N/A"
             
-            log_message(f"Cloud sync: {filename} - Local: {local_time_str}, Remote: {remote_time_str}")
+
             
             # Compare timestamps and sync
             if local_timestamp > remote_timestamp:
@@ -3642,7 +3652,7 @@ def sync_files_with_config():
         except Exception as e:
             error_msg = f"❌ Error processing {filename}: {str(e)}"
             results.append(error_msg)
-            log_message(f"Cloud sync: {error_msg}")
+    
     
     return results
 
@@ -3921,7 +3931,7 @@ def save_leave_raw_preferences():
             json.dump(macro_leave_raw_preferences, f, indent=4)
         return True
     except Exception as e:
-        log_message(f"Error saving 'Leave Raw' preferences: {e}")
+        print(f"Error saving 'Leave Raw' preferences: {e}")
         return False
 
 def load_leave_raw_preferences():
@@ -3940,7 +3950,7 @@ def load_leave_raw_preferences():
             macro_leave_raw_preferences.clear()
             macro_leave_raw_preferences.update(json.load(f))
     except Exception as e:
-        log_message(f"Error loading 'Leave Raw' preferences: {e}")
+        print(f"Error loading 'Leave Raw' preferences: {e}")
 
 # Replace the styled_askyesno call in the hide/unhide handler with a custom messagebox with button text and tooltips
 # Add this helper function near the other styled messageboxes:
@@ -3968,13 +3978,57 @@ class CTkTooltip:
     def show_tip(self, event=None):
         if self.tipwindow or not self.text:
             return
+        
+        # Get screen dimensions for better positioning
+        screen_width = self.widget.winfo_screenwidth()
+        screen_height = self.widget.winfo_screenheight()
+        
+        # Calculate initial position
         x = self.widget.winfo_rootx() + 20
         y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+        
+        # Adjust position if tooltip would go off screen
+        if x + 400 > screen_width:  # 400px estimated tooltip width
+            x = self.widget.winfo_rootx() - 420  # Position to the left instead
+        if y + 300 > screen_height:  # 300px estimated tooltip height
+            y = self.widget.winfo_rooty() - 310  # Position above instead
         self.tipwindow = tw = tk.Toplevel(self.widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        label = tk.Label(tw, text=self.text, justify='left', background="#222", foreground="white", relief='solid', borderwidth=1, font=("Segoe UI", 10))
-        label.pack(ipadx=6, ipady=2)
+        
+        # Create a frame to hold the text with proper wrapping
+        frame = tk.Frame(tw, background="#222", relief='solid', borderwidth=1)
+        frame.pack(ipadx=6, ipady=2)
+        
+        # Use Text widget for better handling of long text with wrapping
+        text_widget = tk.Text(frame, 
+                             background="#222", 
+                             foreground="white", 
+                             font=("Segoe UI", 10),
+                             wrap='word',
+                             width=50,  # Set a reasonable max width
+                             height=10,  # Set a reasonable max height
+                             relief='flat',
+                             borderwidth=0)
+        text_widget.pack(padx=4, pady=2)
+        
+        # Insert the text content
+        text_widget.insert("1.0", self.text)
+        
+        # Configure text alignment and make read-only
+        text_widget.tag_configure("center", justify='left')
+        text_widget.tag_add("center", "1.0", "end")
+        text_widget.config(state='disabled')
+        
+        # Adjust size based on content
+        text_widget.update_idletasks()
+        content_height = int(text_widget.index('end-1c').split('.')[0])
+        if content_height > 10:
+            text_widget.config(height=min(content_height, 15))  # Max 15 lines
+        
+        # Update the frame size
+        frame.update_idletasks()
+        
     def hide_tip(self, event=None):
         if self.tipwindow:
             self.tipwindow.destroy()
@@ -4142,7 +4196,7 @@ def show_usage_notes_dialog(macro_key, parent=None, update_list_func=None):
                 'new_notes': notes_content if notes_content else None
             })
             
-            log_message(f"Saved usage notes for macro '{macro_key[1]}'")
+    
             dialog.destroy()
             # Refresh the macro list to update paper icon colors
             if update_list_func:
@@ -4190,7 +4244,7 @@ def get_tray_icon():
         try:
             return Image.open(config['icon_path'])
         except Exception as e:
-            log_message(f"Error loading tray icon: {e}")
+            print(f"Error loading tray icon: {e}")
     return create_default_icon()
 
 def get_top_macros():
@@ -4250,22 +4304,21 @@ def close_macromouse_from_tray():
     global window, tray_icon, _temp_icon_path
     
     # Log the closure
-    log_message("Application closed from system tray.")
-    log_message("="*20 + " MacroMouse Session End " + "="*20 + "\n")
+    log_important_event("app_closed")
     
     # Clean up the temporary icon file if it exists
     if _temp_icon_path and os.path.exists(_temp_icon_path):
         try:
             os.remove(_temp_icon_path)
         except Exception as e:
-            log_message(f"Error removing temporary icon file: {e}")
+            print(f"Error removing temporary icon file: {e}")
     
     # Stop the tray icon first
     if tray_icon:
         try:
             tray_icon.stop()
         except Exception as e:
-            log_message(f"Error stopping tray icon: {e}")
+            print(f"Error stopping tray icon: {e}")
         tray_icon = None
     
     # Then destroy the window
@@ -4274,7 +4327,7 @@ def close_macromouse_from_tray():
             window.quit()  # Stop the mainloop
             window.destroy()  # Destroy the window
         except Exception as e:
-            log_message(f"Error destroying window: {e}")
+            print(f"Error destroying window: {e}")
         window = None
     
     # Force exit the application
